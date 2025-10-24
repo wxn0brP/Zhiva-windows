@@ -39,8 +39,8 @@ func main() {
 	zhivaPath := filepath.Join(userHome, ".zhiva")
 	if _, err := os.Stat(zhivaPath); os.IsNotExist(err) {
 		fmt.Println("[Z-WIN-1-06] .zhiva does not exist, running PowerShell...")
-		psCmd := `powershell -c "irm https://raw.githubusercontent.com/wxn0brP/Zhiva-scripts/master/install/prepare.ps1 | iex"`
-		cmd := exec.Command("cmd", "/C", psCmd)
+		psCmd := `irm https://raw.githubusercontent.com/wxn0brP/Zhiva-scripts/master/install/prepare.ps1 | iex`
+		cmd := exec.Command("powershell", "-c", psCmd)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		err := cmd.Run()
