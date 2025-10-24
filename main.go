@@ -50,8 +50,8 @@ func main() {
 		}
 
 		fmt.Println("[Z-WIN-1-08] Adding .zhiva to PATH...")
-		pathAddCmd := fmt.Sprintf(`setx PATH "%%PATH%%;%s"`, zhivaPath)
-		cmd = exec.Command("cmd", "/C", pathAddCmd)
+		pathAddCmd := fmt.Sprintf(`$env:PATH += ";%s"; [Environment]::SetEnvironmentVariable("PATH", $env:PATH, "User")`, zhivaPath)
+		cmd = exec.Command("powershell", "-Command", pathAddCmd)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		err = cmd.Run()
