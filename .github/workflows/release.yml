@@ -1,0 +1,87 @@
+name: Build PS1 to EXE and Release
+
+on:
+  workflow_call:
+    inputs:
+      name:
+        description: "Name of the PS1 script (without extension)"
+        required: true
+        type: string
+      icon:
+        description: "Optional path to .ico file"
+        required: false
+        type: string
+      release_tag:
+        description: "Release tag to upload EXE (default: latest)"
+        required: false
+        type: string
+
+  workflow_dispatch:
+    inputs:
+      name:
+        description: name
+        required: true
+        type: string
+      icon:
+        description: icon
+        required: false
+        type: string
+      release_tag:
+        description: release_tag
+        required: false
+        type: string
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Install PS2EXE
+        shell: pwsh
+        run: |
+          Install-Module -Name PS2EXE -Scope CurrentUser -Force
+          Import-Module (Join-Path $env:USERPROFILE "Documents\PowerShell\Modules\PS2EXE\*")
+
+      - name: Compile PS1 to EXE
+        shell: pwsh
+        run: |
+          $ScriptName = "${{ inputs.name }}"
+          $InputFile = "$PWD\$ScriptName.ps1"
+          $OutputFile = "$PWD\$ScriptName.exe"
+          if (${{ inputs.icon }}) {
+              $IconFile = "$PWD\${{ inputs.icon }}"
+              Invoke-PS2EXE -InputFile $InputFile -OutputFile $OutputFile -Icon $IconFile
+          } else {
+              Invoke-PS2EXE -InputFile $InputFile -OutputFile $OutputFile
+          }
+
+      - name: Determine release tag
+        id: tag
+        run: |
+          if ('${{ inputs.release_tag }}' -and '${{ inputs.release_tag }}' -ne '') {
+              Write-Output "release_tag=${{ inputs.release_tag }}" | Out-File -FilePath $GITHUB_OUTPUT -Encoding utf8
+          } else {
+              Write-Output "release_tag=latest" | Out-File -FilePath $GITHUB_OUTPUT -Encoding utf8
+          }
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: actions/create-release@v1
+        with:
+          tag_name: ${{ steps.tag.outputs.release_tag }}
+          release_name: Release ${{ steps.tag.outputs.release_tag }}
+          override: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload EXE to Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: ${{ inputs.name }}.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
