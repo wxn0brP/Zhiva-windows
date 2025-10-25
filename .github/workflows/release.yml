@@ -73,21 +73,14 @@ jobs:
               "release_tag=latest" | Out-File -FilePath $GITHUB_OUTPUT -Encoding utf8
           }
 
-      - name: Create GitHub Release
-        id: create_release
-        uses: actions/create-release@v1
+      - name: Upload binary to release
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.release_tag }}
-          release_name: Release ${{ steps.tag.outputs.release_tag }}
-          override: true
+          name: ${{ steps.tag.outputs.release_tag }}
           draft: false
           prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload EXE to Release
-        uses: softprops/action-gh-release@v1
-        with:
           files: ${{ inputs.name }}.exe
+          overwrite_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
