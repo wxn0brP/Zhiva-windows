@@ -51,8 +51,10 @@ jobs:
           $ScriptName = "${{ inputs.name }}"
           $InputFile = "$PWD\$ScriptName.ps1"
           $OutputFile = "$PWD\$ScriptName.exe"
-          if (${{ inputs.icon }}) {
-              $IconFile = "$PWD\${{ inputs.icon }}"
+          $IconInput = '${{ inputs.icon }}'
+
+          if ($IconInput -and $IconInput -ne '') {
+              $IconFile = "$PWD\$IconInput"
               Invoke-PS2EXE -InputFile $InputFile -OutputFile $OutputFile -Icon $IconFile
           } else {
               Invoke-PS2EXE -InputFile $InputFile -OutputFile $OutputFile
@@ -61,8 +63,10 @@ jobs:
       - name: Determine release tag
         id: tag
         run: |
-          if ('${{ inputs.release_tag }}' -and '${{ inputs.release_tag }}' -ne '') {
-              Write-Output "release_tag=${{ inputs.release_tag }}" | Out-File -FilePath $GITHUB_OUTPUT -Encoding utf8
+          $ReleaseTag = '${{ inputs.release_tag }}'
+
+          if ($ReleaseTag -and $ReleaseTag -ne '') {
+              Write-Output "release_tag=$ReleaseTag" | Out-File -FilePath $GITHUB_OUTPUT -Encoding utf8
           } else {
               Write-Output "release_tag=latest" | Out-File -FilePath $GITHUB_OUTPUT -Encoding utf8
           }
