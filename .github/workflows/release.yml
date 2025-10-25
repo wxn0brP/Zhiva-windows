@@ -43,7 +43,7 @@ jobs:
         shell: pwsh
         run: |
           Install-Module -Name PS2EXE -Scope CurrentUser -Force
-          Import-Module (Join-Path $env:USERPROFILE "Documents\PowerShell\Modules\PS2EXE\*")
+          Import-Module PS2EXE
 
       - name: Compile PS1 to EXE
         shell: pwsh
