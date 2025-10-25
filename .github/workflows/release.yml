@@ -65,10 +65,12 @@ jobs:
         run: |
           $ReleaseTag = '${{ inputs.release_tag }}'
 
+          $GITHUB_OUTPUT = $env:GITHUB_OUTPUT
+
           if ($ReleaseTag -and $ReleaseTag -ne '') {
-              Write-Output "release_tag=$ReleaseTag" | Out-File -FilePath $GITHUB_OUTPUT -Encoding utf8
+              "release_tag=$ReleaseTag" | Out-File -FilePath $GITHUB_OUTPUT -Encoding utf8
           } else {
-              Write-Output "release_tag=latest" | Out-File -FilePath $GITHUB_OUTPUT -Encoding utf8
+              "release_tag=latest" | Out-File -FilePath $GITHUB_OUTPUT -Encoding utf8
           }
 
       - name: Create GitHub Release
