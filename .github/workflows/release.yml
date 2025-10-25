@@ -4,7 +4,7 @@ on:
   workflow_call:
     inputs:
       name:
-        description: "Name of the PS1 script (without extension)"
+        description: "Name of the Zhiva app"
         required: true
         type: string
       icon:
@@ -45,11 +45,15 @@ jobs:
           Install-Module -Name PS2EXE -Scope CurrentUser -Force
           Import-Module PS2EXE
 
-      - name: Compile PS1 to EXE
+      - name: Compile
         shell: pwsh
         run: |
           $ScriptName = "${{ inputs.name }}"
           $InputFile = "$PWD\$ScriptName.ps1"
+
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/wxn0brP/Zhiva-windows/refs/heads/master/install.ps1" -OutFile $InputFile
+          (Get-Content $InputFile) -replace '%%name%%', $ScriptName | Set-Content $InputFile
+
           $OutputFile = "$PWD\$ScriptName.exe"
           $IconInput = '${{ inputs.icon }}'
 
@@ -62,9 +66,9 @@ jobs:
 
       - name: Determine release tag
         id: tag
+        shell: pwsh
         run: |
           $ReleaseTag = '${{ inputs.release_tag }}'
-
           $GITHUB_OUTPUT = $env:GITHUB_OUTPUT
 
           if ($ReleaseTag -and $ReleaseTag -ne '') {
