@@ -12,6 +12,7 @@ if (-not (Test-Path $ZhivaFolder)) {
     Write-Host "[Z-WIN-2-03] Running bootstrap..."
     Start-Process -FilePath $TempFile -Wait
     Remove-Item $TempFile -Force
+    $env:Path += ";$ZhivaFolder\bin"
 }
 
 Write-Host "[Z-WIN-2-04] Running zhiva-install..."
