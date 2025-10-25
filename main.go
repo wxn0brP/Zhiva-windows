@@ -48,21 +48,9 @@ func main() {
 			fmt.Println("[Z-WIN-1-07] Error running PowerShell:", err)
 			return
 		}
-
-		fmt.Println("[Z-WIN-1-08] Adding .zhiva to PATH...")
-		zhivaBinPath := filepath.Join(zhivaPath, "bin")
-		pathAddCmd := fmt.Sprintf(`$env:PATH += ";%s"; [Environment]::SetEnvironmentVariable("PATH", $env:PATH, "User")`, zhivaBinPath)
-		cmd = exec.Command("powershell", "-Command", pathAddCmd)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		err = cmd.Run()
-		if err != nil {
-			fmt.Println("[Z-WIN-1-09] Error adding to PATH:", err)
-			return
-		}
 	} else {
-		fmt.Println("[Z-WIN-1-10] .zhiva already exists.")
+		fmt.Println("[Z-WIN-1-08] .zhiva already exists.")
 	}
 
-	fmt.Println("[Z-WIN-1-11] Ready.")
+	fmt.Println("[Z-WIN-1-09] Ready.")
 }
