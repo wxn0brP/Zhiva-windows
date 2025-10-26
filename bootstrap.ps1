@@ -28,25 +28,14 @@ if (-not (Test-Path -Path $zhivaPath -PathType Container)) {
     Write-Output "[Z-WIN-1-06] Folder .zhiva not found. Running remote preparation script..."
 
     try {
-        $remoteUrl = "https://raw.githubusercontent.com/wxn0brP/Zhiva-scripts/master/install/prepare.ps1"
-        Write-Output "[Z-WIN-1-07] Downloading script from $remoteUrl"
-
-        $psScript = Invoke-RestMethod -Uri $remoteUrl -ErrorAction Stop
-
-        if ([string]::IsNullOrWhiteSpace($psScript)) {
-            Write-Output "[Z-WIN-1-08] Empty script received from remote source."
-            exit 1
-        }
-
-        $scriptBlock = [ScriptBlock]::Create($psScript)
-        & $scriptBlock
-        Write-Output "[Z-WIN-1-09] Remote script executed successfully."
+        irm https://raw.githubusercontent.com/wxn0brP/Zhiva-scripts/master/install/prepare.ps1 | iex
+        Write-Output "[Z-WIN-1-07] Remote script executed successfully."
     } catch {
-        Write-Output "[Z-WIN-1-10] Error executing remote PowerShell script: $($_.Exception.Message)"
+        Write-Output "[Z-WIN-1-08] Error executing remote PowerShell script: $($_.Exception.Message)"
         exit 1
     }
 } else {
-    Write-Output "[Z-WIN-1-11] Folder .zhiva already exists."
+    Write-Output "[Z-WIN-1-09] Folder .zhiva already exists."
 }
 
-Write-Output "[Z-WIN-1-12] Setup completed successfully."
+Write-Output "[Z-WIN-1-10] Setup completed successfully."
