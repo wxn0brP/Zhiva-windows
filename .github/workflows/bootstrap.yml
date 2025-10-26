@@ -5,10 +5,9 @@ on:
     branches:
       - master
     paths:
-      - "main.go"
       - ".github/workflows/bootstrap.yml"
-      - "go.mod"
-      - "go.sum"
+      - "bootstrap.ps1"
+      - "app.ico"
 
   workflow_dispatch:
 
@@ -20,24 +19,17 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v5
 
-      - name: Set up Go
-        uses: actions/setup-go@v6
-        with:
-          go-version: "1.25"
-
-      - name: Install rsrc tool
-        run: go install github.com/akavel/rsrc@latest
-
-      - name: Prepare
+      - name: Install PS2EXE
+        shell: pwsh
         run: |
-          go mod tidy
+          Install-Module -Name PS2EXE -Scope CurrentUser -Force
+          Import-Module PS2EXE
 
-      - name: Build Windows binary
+      - name: Compile
+        shell: pwsh
         run: |
-          rsrc -ico app.ico -o rsrc.syso
-          set GOOS=windows
-          set GOARCH=amd64
-          go build -o zhiva-bootstrap.exe
+          $IconFile = "$PWD\app.ico"
+          Invoke-PS2EXE -InputFile "$PWD\bootstrap.ps1" -OutputFile "$PWD\zhiva-bootstrap.exe" -Icon $IconFile
 
       - name: Upload binary to release
         uses: softprops/action-gh-release@v2
