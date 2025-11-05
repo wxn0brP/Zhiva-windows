@@ -28,7 +28,7 @@ if (-not (Test-Path -Path $zhivaPath -PathType Container)) {
     Write-Output "[Z-WIN-1-06] Folder .zhiva not found. Running remote preparation script..."
 
     try {
-        irm https://raw.githubusercontent.com/wxn0brP/Zhiva-scripts/master/install/prepare.ps1 | iex
+        irm https://raw.githubusercontent.com/wxn0brP/Zhiva/HEAD/install/prepare.ps1 | iex
         Write-Output "[Z-WIN-1-07] Remote script executed successfully."
     } catch {
         Write-Output "[Z-WIN-1-08] Error executing remote PowerShell script: $($_.Exception.Message)"
