@@ -1,4 +1,4 @@
-$logFile = Join-Path $env:TEMP "zhiva-install.log"
+$logFile = Join-Path $env:TEMP "zhiva-app-install.log"
 function Write-Log {
     param(
         [string]$Message
