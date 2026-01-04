@@ -27,6 +27,7 @@ if (-not (Test-Path $ZhivaFolder)) {
 }
 
 Write-Log "[Z-WIN-2-04] Running zhiva install..."
-Start-Process "zhiva install" -ArgumentList "%%name%%" -Wait
+Start-Process (Join-Path (Join-Path $env:USERPROFILE ".zhiva\bin") "zhiva.cmd") -ArgumentList "self" -Wait
+Start-Process (Join-Path (Join-Path $env:USERPROFILE ".zhiva\bin") "zhiva.cmd") -ArgumentList "install", "%%name%%" -Wait
 
 Write-Log "[Z-WIN-2-05] Done."
