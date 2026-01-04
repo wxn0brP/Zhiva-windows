@@ -1,33 +1,18 @@
-$logFile = Join-Path $env:TEMP "zhiva-app-install.log"
-function Write-Log {
-    param(
-        [string]$Message
-    )
-    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $logMessage = "[$timestamp] $Message"
-    $logMessage | Tee-Object -FilePath $logFile -Append
-    Write-Host $Message
+$LogFile = "$env:TEMP\zhiva-app-install.log"
+Start-Transcript -Path $LogFile -Append -Force
+
+$ZhivaDir = "$env:USERPROFILE\.zhiva"
+
+if (-not (Test-Path $ZhivaDir)) {
+    Write-Host "[Z-WIN-0-01] .zhiva folder missing. Downloading bootstrap..."
+    irm https://raw.githubusercontent.com/wxn0brP/Zhiva/HEAD/install/prepare.ps1 | iex
 }
 
-$ZhivaFolder = Join-Path $env:USERPROFILE ".zhiva"
+$ZhivaCmd = "$ZhivaDir\bin\zhiva.cmd"
 
-if (-not (Test-Path $ZhivaFolder)) {
-    Write-Log "[Z-WIN-2-01] .zhiva folder does not exist. Downloading bootstrap..."
-    
-    $BootstrapUrl = "https://github.com/wxn0brP/Zhiva-windows/releases/download/native/zhiva-bootstrap.exe"
-    $TempFile = Join-Path $env:TEMP "zhiva-bootstrap.exe"
-    Write-Log "[Z-WIN-2-02] Bootstrap temp file: $TempFile"
+Write-Host "[Z-WIN-0-02] Running zhiva install..."
+Start-Process $ZhivaCmd -ArgumentList "self" -Wait
+Start-Process $ZhivaCmd -ArgumentList "install", "%%name%%" -Wait
 
-    Invoke-WebRequest -Uri $BootstrapUrl -OutFile $TempFile
-
-    Write-Log "[Z-WIN-2-03] Running bootstrap..."
-    Start-Process -FilePath $TempFile -Wait
-    Remove-Item $TempFile -Force
-    $env:Path += ";$ZhivaFolder\bin"
-}
-
-Write-Log "[Z-WIN-2-04] Running zhiva install..."
-Start-Process (Join-Path (Join-Path $env:USERPROFILE ".zhiva\bin") "zhiva.cmd") -ArgumentList "self" -Wait
-Start-Process (Join-Path (Join-Path $env:USERPROFILE ".zhiva\bin") "zhiva.cmd") -ArgumentList "install", "%%name%%" -Wait
-
-Write-Log "[Z-WIN-2-05] Done."
+Write-Host "[Z-WIN-0-03] Done."
+Stop-Transcript
