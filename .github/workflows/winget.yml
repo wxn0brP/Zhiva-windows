@@ -1,0 +1,43 @@
+name: Build and Release winget package
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Install PS2EXE
+        shell: pwsh
+        run: |
+          Install-Module -Name PS2EXE -Scope CurrentUser -Force
+          Import-Module PS2EXE
+
+      - name: Compile
+        shell: pwsh
+        run: |
+          $IconFile = "$PWD\app.ico"
+          Invoke-PS2EXE -InputFile "$PWD\winget.ps1" -OutputFile "$PWD\zhiva-winget.exe" -Icon $IconFile
+
+      - name: Sha256
+        shell: pwsh
+        run: |
+          Get-FileHash -Path "$PWD\zhiva-winget.exe" -Algorithm SHA256 | ForEach-Object { $_.Hash } | Out-File "$PWD\zhiva-winget.sha256" -Encoding UTF8
+
+      - name: Upload binary to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: native
+          name: native
+          draft: false
+          prerelease: false
+          files: |
+            zhiva-winget.exe
+            zhiva-winget.sha256
+          overwrite_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
