@@ -49,4 +49,6 @@ if (-not (Test-Path -Path $zhivaPath -PathType Container)) {
     Write-Log "[Z-WIN-1-09] Folder .zhiva already exists."
 }
 
+Start-Process (Join-Path (Join-Path $env:USERPROFILE ".zhiva\bin") "zhiva.cmd") -ArgumentList "self" -Wait
+
 Write-Log "[Z-WIN-1-10] Setup completed successfully."
