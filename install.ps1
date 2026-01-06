@@ -12,30 +12,19 @@ function Get-FreshPath {
 $env:PATH = Get-FreshPath
 
 if (-not (Test-Path $ZhivaDir)) {
-    Write-Host "=============================================="
-    Write-Host "   Note: To complete the Zhiva system setup,"
-    Write-Host "   it may be necessary to run"
-    Write-Host "   this program 4-7 times."
-    Write-Host "   The installation process will start now."
-    Write-Host "=============================================="
-    Write-Host ""
-    Write-Host "Starting in 5 seconds..."
-    Start-Sleep -Seconds 5
-
     $prepareScriptUrl = "https://raw.githubusercontent.com/wxn0brP/Zhiva/HEAD/install/prepare.ps1"
     $tempScript = [System.IO.Path]::GetTempFileName() + ".ps1"
 
     try {
         Write-Host "[Z-WIN-0-01] Retrieving the installation script..."
         Invoke-RestMethod -Uri $prepareScriptUrl -OutFile $tempScript
+        Write-Host "[Z-WIN-0-02] Trying to run prepare.ps1..."
 
-        for ($i = 1; $i -le 3; $i++) {
-            Write-Host "[Z-WIN-0-02] Trying to run prepare.ps1..."
-            
-            $env:PATH = Get-FreshPath
-            Start-Process -FilePath "powershell" -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$tempScript`"" -Wait
-            $env:PATH = Get-FreshPath
-        }
+        $env:PATH = Get-FreshPath
+        Start-Process -FilePath "powershell" -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$tempScript`"" -Wait
+        Write-Host ""
+        Write-Host "Press Enter to continue..."
+        $env:PATH = Get-FreshPath
     } catch {
         Write-Host "[Z-WIN-0-03] Failed to download or execute the installation script: $_"
     } finally {
@@ -46,6 +35,8 @@ if (-not (Test-Path $ZhivaDir)) {
 
     $env:PATH = Get-FreshPath
 }
+Write-Host ""
+Write-Host "Press Enter to continue..."
 
 $ZhivaCmd = "$ZhivaDir\bin\zhiva.cmd"
 
