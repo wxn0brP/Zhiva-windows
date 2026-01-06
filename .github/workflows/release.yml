@@ -59,9 +59,9 @@ jobs:
 
           if ($IconInput -and $IconInput -ne '') {
               $IconFile = "$PWD\$IconInput"
-              Invoke-PS2EXE -InputFile $InputFile -OutputFile $OutputFile -Icon $IconFile
+              Invoke-PS2EXE -InputFile $InputFile -OutputFile $OutputFile -NoConsole -Title "Zhiva App Installer" -Icon $IconFile
           } else {
-              Invoke-PS2EXE -InputFile $InputFile -OutputFile $OutputFile
+              Invoke-PS2EXE -InputFile $InputFile -OutputFile $OutputFile -NoConsole -Title "Zhiva App Installer"
           }
 
       - name: Determine release tag
