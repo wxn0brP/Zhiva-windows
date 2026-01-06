@@ -32,10 +32,9 @@ if (-not (Test-Path $ZhivaDir)) {
         for ($i = 1; $i -le 3; $i++) {
             Write-Host "[Z-WIN-0-02] Trying to run prepare.ps1..."
             
-            Start-Process -FilePath "powershell" `
-                          -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$tempScript`"" `
-                          -Wait `
-                          -Environment @{ "PATH" = (Get-FreshPath) }
+            $env:PATH = Get-FreshPath
+            Start-Process -FilePath "powershell" -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$tempScript`"" -Wait
+            $env:PATH = Get-FreshPath
         }
     } catch {
         Write-Host "[Z-WIN-0-03] Failed to download or execute the installation script: $_"
@@ -51,8 +50,9 @@ if (-not (Test-Path $ZhivaDir)) {
 $ZhivaCmd = "$ZhivaDir\bin\zhiva.cmd"
 
 Write-Host "[Z-WIN-0-07] Running zhiva install..."
-Start-Process $ZhivaCmd -ArgumentList "self" -Wait -Environment @{ "PATH" = (Get-FreshPath) }
-Start-Process $ZhivaCmd -ArgumentList "install", "%%name%%" -Wait -Environment @{ "PATH" = (Get-FreshPath) }
+$env:PATH = Get-FreshPath
+Start-Process $ZhivaCmd -ArgumentList "self" -Wait
+Start-Process $ZhivaCmd -ArgumentList "install", "%%name%%" -Wait
 
 Write-Host "[Z-WIN-0-08] Done."
 Stop-Transcript
