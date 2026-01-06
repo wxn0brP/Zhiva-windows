@@ -3,14 +3,24 @@ Start-Transcript -Path $LogFile -Append -Force
 
 $ZhivaDir = "$env:USERPROFILE\.zhiva"
 
+function Get-FreshPath {
+    $systemPath = [System.Environment]::GetEnvironmentVariable("PATH", "Machine")
+    $userPath   = [System.Environment]::GetEnvironmentVariable("PATH", "User")
+    return "$systemPath;$userPath"
+}
+
+$env:PATH = Get-FreshPath
+
 if (-not (Test-Path $ZhivaDir)) {
     Write-Host "=============================================="
-    Write-Host "ℹ️  Note: To complete the Zhiva system setup,"
+    Write-Host "   Note: To complete the Zhiva system setup,"
     Write-Host "   it may be necessary to run"
     Write-Host "   this program 4-7 times."
     Write-Host "   The installation process will start now."
     Write-Host "=============================================="
     Write-Host ""
+    Write-Host "Starting in 5 seconds..."
+    Start-Sleep -Seconds 5
 
     $prepareScriptUrl = "https://raw.githubusercontent.com/wxn0brP/Zhiva/HEAD/install/prepare.ps1"
     $tempScript = [System.IO.Path]::GetTempFileName() + ".ps1"
@@ -20,8 +30,12 @@ if (-not (Test-Path $ZhivaDir)) {
         Invoke-RestMethod -Uri $prepareScriptUrl -OutFile $tempScript
 
         for ($i = 1; $i -le 3; $i++) {
-            Write-Host "[Z-WIN-0-02] Trying to run prepare.ps1 ($i/3)..."
-            Start-Process -FilePath "powershell" -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$tempScript`"" -Wait
+            Write-Host "[Z-WIN-0-02] Trying to run prepare.ps1..."
+            
+            Start-Process -FilePath "powershell" `
+                          -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$tempScript`"" `
+                          -Wait `
+                          -Environment @{"PATH" = Get-FreshPath()}
         }
     } catch {
         Write-Host "[Z-WIN-0-03] Failed to download or execute the installation script: $_"
@@ -31,16 +45,14 @@ if (-not (Test-Path $ZhivaDir)) {
         }
     }
 
-    Write-Host "[Z-WIN-0-04] Program restart after 3 configuration attempts..."
-    Start-Process -FilePath $MyInvocation.MyCommand.Definition
-    exit
+    $env:PATH = Get-FreshPath
 }
 
 $ZhivaCmd = "$ZhivaDir\bin\zhiva.cmd"
 
 Write-Host "[Z-WIN-0-07] Running zhiva install..."
-Start-Process $ZhivaCmd -ArgumentList "self" -Wait
-Start-Process $ZhivaCmd -ArgumentList "install", "%%name%%" -Wait
+Start-Process $ZhivaCmd -ArgumentList "self" -Wait -Environment @{"PATH" = Get-FreshPath()}
+Start-Process $ZhivaCmd -ArgumentList "install", "%%name%%" -Wait -Environment @{"PATH" = Get-FreshPath()}
 
 Write-Host "[Z-WIN-0-08] Done."
 Stop-Transcript
