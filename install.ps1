@@ -20,11 +20,13 @@ if (-not (Test-Path $ZhivaDir)) {
         Invoke-RestMethod -Uri $prepareScriptUrl -OutFile $tempScript
         Write-Host "[Z-WIN-0-02] Trying to run prepare.ps1..."
 
-        $env:PATH = Get-FreshPath
-        Start-Process -FilePath "powershell" -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$tempScript`"" -Wait
-        Write-Host ""
-        Write-Host "Press Enter to continue..."
-        $env:PATH = Get-FreshPath
+        for ($i = 1; $i -le 3; $i++) {
+            $env:PATH = Get-FreshPath
+            Start-Process -FilePath "powershell" -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$tempScript`"" -Wait
+            Write-Host ""
+            Write-Host "Press Enter to continue..."
+            $env:PATH = Get-FreshPath
+        }
     } catch {
         Write-Host "[Z-WIN-0-03] Failed to download or execute the installation script: $_"
     } finally {
