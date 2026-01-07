@@ -15,6 +15,10 @@ on:
         description: "Release tag to upload EXE (default: latest)"
         required: false
         type: string
+      file_name:
+        description: "Optional output EXE filename (without .exe extension)"
+        required: false
+        type: string
 
   workflow_dispatch:
     inputs:
@@ -28,6 +32,10 @@ on:
         type: string
       release_tag:
         description: release_tag
+        required: false
+        type: string
+      file_name:
+        description: file_name
         required: false
         type: string
 
@@ -48,34 +56,56 @@ jobs:
       - name: Compile
         shell: pwsh
         run: |
-          $ScriptName = "${{ inputs.name }}"
-          $InputFile = "$PWD\$ScriptName.ps1"
+          $AppName = "${{ inputs.name }}"
+          $FileNameInput = "${{ inputs.file_name }}"
+          if (-not $FileNameInput -or $FileNameInput -eq '') {
+              $FileName = $AppName -replace '[^a-zA-Z0-9._\-]', '_' -replace '__+', '_' -replace '^_|_$', ''
+              if ($FileName -eq '') { $FileName = 'app' }
+          } else {
+              $FileName = $FileNameInput
+          }
+
+          $InputFile = "$PWD\$FileName.ps1"
+          $OutputFile = "$PWD\$FileName.exe"
 
           Invoke-WebRequest -Uri "https://raw.githubusercontent.com/wxn0brP/Zhiva-windows/refs/heads/master/install.ps1" -OutFile $InputFile
-          (Get-Content $InputFile) -replace '%%name%%', $ScriptName | Set-Content $InputFile
+          (Get-Content $InputFile) -replace '%%name%%', $AppName | Set-Content $InputFile
 
-          $OutputFile = "$PWD\$ScriptName.exe"
           $IconInput = '${{ inputs.icon }}'
+          $IconFile = $null
 
           if ($IconInput -and $IconInput -ne '') {
               $IconFile = "$PWD\$IconInput"
-              Invoke-PS2EXE -InputFile $InputFile -OutputFile $OutputFile -NoConsole -Title "Zhiva App Installer" -Icon $IconFile
-          } else {
-              Invoke-PS2EXE -InputFile $InputFile -OutputFile $OutputFile -NoConsole -Title "Zhiva App Installer"
+              if (-not (Test-Path $IconFile)) {
+                  Write-Error "Icon file not found: $IconFile"
+                  exit 1
+              }
           }
+
+          $params = @{
+              InputFile  = $InputFile
+              OutputFile = $OutputFile
+              NoConsole  = $true
+              Title      = "Zhiva App Installer"
+          }
+          if ($IconFile) {
+              $params.Icon = $IconFile
+          }
+
+          Invoke-PS2EXE @params
+
+          "$env:GITHUB_ENV" | Out-Null
+          "EXE_NAME=$FileName.exe" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Determine release tag
         id: tag
         shell: pwsh
         run: |
           $ReleaseTag = '${{ inputs.release_tag }}'
-          $GITHUB_OUTPUT = $env:GITHUB_OUTPUT
-
-          if ($ReleaseTag -and $ReleaseTag -ne '') {
-              "release_tag=$ReleaseTag" | Out-File -FilePath $GITHUB_OUTPUT -Encoding utf8
-          } else {
-              "release_tag=latest" | Out-File -FilePath $GITHUB_OUTPUT -Encoding utf8
+          if (-not $ReleaseTag -or $ReleaseTag -eq '') {
+              $ReleaseTag = 'latest'
           }
+          "release_tag=$ReleaseTag" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8
 
       - name: Upload binary to release
         uses: softprops/action-gh-release@v2
@@ -84,7 +114,7 @@ jobs:
           name: ${{ steps.tag.outputs.release_tag }}
           draft: false
           prerelease: false
-          files: ${{ inputs.name }}.exe
+          files: ${{ env.EXE_NAME }}
           overwrite_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
