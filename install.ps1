@@ -47,12 +47,7 @@ function Get-FreshPath {
     return "$systemPath;$userPath"
 }
 
-$LogDir  = "$env:USERPROFILE\.zhiva\logs"
-$LogFile = "$LogDir\install.log"
-
-if (-not (Test-Path $LogDir)) {
-    New-Item -ItemType Directory -Path $LogDir -Force | Out-Null
-}
+$LogFile = Join-Path $env:TEMP "zhiva-install.log"
 
 $installScript = {
     $env:PATH = Get-FreshPath
