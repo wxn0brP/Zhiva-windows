@@ -56,8 +56,10 @@ $installScript = {
 
     try {
         $ZhivaDir = "$env:USERPROFILE\.zhiva"
+        Write-Host "[Z-WIN-0-01] Zhiva directory: $ZhivaDir"
 
         if (-not (Test-Path $ZhivaDir)) {
+            Write-Host "[Z-WIN-0-02] Zhiva isn't alive. Installing..."
             $baseUrl = "https://raw.githubusercontent.com/wxn0brP/Zhiva-windows/HEAD/scripts/"
 
             irm "$baseUrl`1.deps.ps1" | iex
@@ -72,6 +74,7 @@ $installScript = {
 
         $env:PATH = Get-FreshPath
 
+        Write-Host "[Z-WIN-0-03] Zhiva is alive."
         $ZhivaCmd = "$ZhivaDir\bin\zhiva.cmd"
         Start-Process $ZhivaCmd -ArgumentList "self" -Wait
         Start-Process $ZhivaCmd -ArgumentList "install", "%%name%%" -Wait
