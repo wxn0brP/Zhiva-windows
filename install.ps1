@@ -41,25 +41,27 @@ $form.Controls.Add($closeButton)
 $script:job = $null
 $script:progress = 0
 
+function Get-FreshPath {
+    $systemPath = [System.Environment]::GetEnvironmentVariable("PATH", "Machine")
+    $userPath   = [System.Environment]::GetEnvironmentVariable("PATH", "User")
+    return "$systemPath;$userPath"
+}
+
 $installScript = {
-    $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("PATH", "User")
+    $env:PATH = Get-FreshPath
     $ZhivaDir = "$env:USERPROFILE\.zhiva"
 
     if (-not (Test-Path $ZhivaDir)) {
-        $prepareScriptUrl = "https://raw.githubusercontent.com/wxn0brP/Zhiva/HEAD/install/prepare.ps1"
-        $tempScript = [System.IO.Path]::GetTempFileName() + ".ps1"
-        try {
-            Invoke-RestMethod -Uri $prepareScriptUrl -OutFile $tempScript
-            for ($i = 1; $i -le 3; $i++) {
-                $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("PATH", "User")
-                Start-Process -FilePath "powershell" -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$tempScript`"" -Wait
-            }
-        } finally {
-            if (Test-Path $tempScript) { Remove-Item $tempScript -Force }
-        }
+        $baseUrl = "https://raw.githubusercontent.com/wxn0brP/Zhiva-windows/HEAD/scripts/"
+        irm "$baseUrl`1.deps.ps1" | iex
+        $env:PATH = Get-FreshPath
+        irm "$baseUrl`2.base.ps1" | iex
+        irm "$baseUrl`3.path.ps1" | iex
+        $env:PATH = Get-FreshPath
+        irm "$baseUrl`4.protocol.ps1" | iex
     }
 
-    $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("PATH", "User")
+    $env:PATH = Get-FreshPath
     $ZhivaCmd = "$ZhivaDir\bin\zhiva.cmd"
     Start-Process $ZhivaCmd -ArgumentList "self" -Wait
     Start-Process $ZhivaCmd -ArgumentList "install", "%%name%%" -Wait
