@@ -47,24 +47,43 @@ function Get-FreshPath {
     return "$systemPath;$userPath"
 }
 
+$LogDir  = "$env:USERPROFILE\.zhiva\logs"
+$LogFile = "$LogDir\install.log"
+
+if (-not (Test-Path $LogDir)) {
+    New-Item -ItemType Directory -Path $LogDir -Force | Out-Null
+}
+
 $installScript = {
     $env:PATH = Get-FreshPath
-    $ZhivaDir = "$env:USERPROFILE\.zhiva"
 
-    if (-not (Test-Path $ZhivaDir)) {
-        $baseUrl = "https://raw.githubusercontent.com/wxn0brP/Zhiva-windows/HEAD/scripts/"
-        irm "$baseUrl`1.deps.ps1" | iex
+    Start-Transcript -Path $using:LogFile -Append
+
+    try {
+        $ZhivaDir = "$env:USERPROFILE\.zhiva"
+
+        if (-not (Test-Path $ZhivaDir)) {
+            $baseUrl = "https://raw.githubusercontent.com/wxn0brP/Zhiva-windows/HEAD/scripts/"
+
+            irm "$baseUrl`1.deps.ps1" | iex
+            $env:PATH = Get-FreshPath
+
+            irm "$baseUrl`2.base.ps1" | iex
+            irm "$baseUrl`3.path.ps1" | iex
+            $env:PATH = Get-FreshPath
+
+            irm "$baseUrl`4.protocol.ps1" | iex
+        }
+
         $env:PATH = Get-FreshPath
-        irm "$baseUrl`2.base.ps1" | iex
-        irm "$baseUrl`3.path.ps1" | iex
-        $env:PATH = Get-FreshPath
-        irm "$baseUrl`4.protocol.ps1" | iex
+
+        $ZhivaCmd = "$ZhivaDir\bin\zhiva.cmd"
+        Start-Process $ZhivaCmd -ArgumentList "self" -Wait
+        Start-Process $ZhivaCmd -ArgumentList "install", "%%name%%" -Wait
     }
-
-    $env:PATH = Get-FreshPath
-    $ZhivaCmd = "$ZhivaDir\bin\zhiva.cmd"
-    Start-Process $ZhivaCmd -ArgumentList "self" -Wait
-    Start-Process $ZhivaCmd -ArgumentList "install", "%%name%%" -Wait
+    finally {
+        Stop-Transcript
+    }
 }
 
 $progressTimer = New-Object System.Windows.Forms.Timer
