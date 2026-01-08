@@ -40,48 +40,45 @@ $form.Controls.Add($closeButton)
 
 $script:job = $null
 $script:progress = 0
-
-function Get-FreshPath {
-    $systemPath = [System.Environment]::GetEnvironmentVariable("PATH", "Machine")
-    $userPath   = [System.Environment]::GetEnvironmentVariable("PATH", "User")
-    return "$systemPath;$userPath"
-}
-
 $LogFile = Join-Path $env:TEMP "zhiva-install.log"
 
 $installScript = {
+    function Get-FreshPath {
+        $systemPath = [System.Environment]::GetEnvironmentVariable("PATH", "Machine")
+        $userPath   = [System.Environment]::GetEnvironmentVariable("PATH", "User")
+        return "$systemPath;$userPath"
+    }
+
     $env:PATH = Get-FreshPath
 
     Start-Transcript -Path $using:LogFile -Append
 
-    try {
-        $ZhivaDir = "$env:USERPROFILE\.zhiva"
-        Write-Host "[Z-WIN-0-01] Zhiva directory: $ZhivaDir"
+    $ZhivaDir = "$env:USERPROFILE\.zhiva"
+    Write-Host "[Z-WIN-0-01] Zhiva directory: $ZhivaDir"
 
-        if (-not (Test-Path $ZhivaDir)) {
-            Write-Host "[Z-WIN-0-02] Zhiva isn't alive. Installing..."
-            $baseUrl = "https://raw.githubusercontent.com/wxn0brP/Zhiva-windows/HEAD/scripts/"
+    if (-not (Test-Path $ZhivaDir)) {
+        Write-Host "[Z-WIN-0-02] Zhiva isn't alive. Installing..."
+        $baseUrl = "https://raw.githubusercontent.com/wxn0brP/Zhiva-windows/HEAD/scripts/"
 
-            irm "$baseUrl`1.deps.ps1" | iex
-            $env:PATH = Get-FreshPath
-
-            irm "$baseUrl`2.base.ps1" | iex
-            irm "$baseUrl`3.path.ps1" | iex
-            $env:PATH = Get-FreshPath
-
-            irm "$baseUrl`4.protocol.ps1" | iex
-        }
-
+        irm "$baseUrl`1.deps.ps1" | iex
         $env:PATH = Get-FreshPath
 
-        Write-Host "[Z-WIN-0-03] Zhiva is alive."
-        $ZhivaCmd = "$ZhivaDir\bin\zhiva.cmd"
-        Start-Process $ZhivaCmd -ArgumentList "self" -Wait
-        Start-Process $ZhivaCmd -ArgumentList "install", "%%name%%" -Wait
+        irm "$baseUrl`2.base.ps1" | iex
+        irm "$baseUrl`3.path.ps1" | iex
+        $env:PATH = Get-FreshPath
+
+        irm "$baseUrl`4.protocol.ps1" | iex
     }
-    finally {
-        Stop-Transcript
-    }
+
+    $env:PATH = Get-FreshPath
+
+    Write-Host "[Z-WIN-0-03] Zhiva is alive."
+    $ZhivaCmd = "$ZhivaDir\bin\zhiva.cmd"
+    Start-Process $ZhivaCmd -ArgumentList "self" -Wait
+    Start-Process $ZhivaCmd -ArgumentList "install", "%%name%%" -Wait
+    Write-Host "[Z-WIN-0-04] Zhiva app installed."
+
+    Stop-Transcript
 }
 
 $progressTimer = New-Object System.Windows.Forms.Timer
