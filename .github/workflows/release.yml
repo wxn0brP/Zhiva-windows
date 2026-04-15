@@ -108,7 +108,7 @@ jobs:
           "release_tag=$ReleaseTag" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8
 
       - name: Upload binary to release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.tag.outputs.release_tag }}
           name: ${{ steps.tag.outputs.release_tag }}
