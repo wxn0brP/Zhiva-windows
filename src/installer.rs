@@ -4,7 +4,7 @@ use std::process::Command;
 
 use anyhow::{bail, Context, Result};
 use winreg::enums::*;
-use winreg::types::RegValue;
+use winreg::reg_value::RegValue;
 use winreg::RegKey;
 
 use crate::ui::Installer;
@@ -206,7 +206,7 @@ fn install_bun(ui: &Installer) -> Result<()> {
 
 // --- Step 3: Zhiva base setup ---
 
-fn setup_zhiva(ui: &Installer, app_name: &str) -> Result<()> {
+fn setup_zhiva(ui: &Installer, _app_name: &str) -> Result<()> {
     ui.step("Setting up Zhiva");
 
     let dir = zhiva_dir()?;
@@ -379,7 +379,7 @@ fn register_protocol(ui: &Installer) -> Result<()> {
     let classes = hkcu.open_subkey_with_flags("Software\\Classes", KEY_READ | KEY_WRITE)?;
 
     let proto = classes.create_subkey("zhiva")?;
-    proto.0.set_value("URL Protocol", "")?;
+    proto.0.set_value("URL Protocol", &"")?;
 
     let shell_cmd = proto.0.create_subkey("shell\\open\\command")?;
     shell_cmd.0.set_value("", &cmd)?;
