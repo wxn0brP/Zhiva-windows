@@ -1,0 +1,17 @@
+[package]
+name = "zhiva-installer"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1"
+indicatif = "0.17"
+reqwest = { version = "0.13", features = ["blocking"] }
+serde_json = "1"
+winreg = "0.52"
+zip = "2"
+
+[profile.release]
+strip = true
+lto = true
+opt-level = "s"
