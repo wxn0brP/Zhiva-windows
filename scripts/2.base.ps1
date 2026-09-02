@@ -12,6 +12,10 @@ if (-not (Test-Path $zhivaScriptsPath)) {
 }
 Write-Host "[Z-WIN-2-02] Zhiva-scripts cloned."
 
+if (-not (Get-Command bun -ErrorAction SilentlyContinue)) {
+    throw "Bun is not available. Please restart your terminal or ensure bun is in PATH."
+}
+
 Copy-Item -Path (Join-Path $zhivaScriptsPath "package.json") -Destination (Join-Path $zhivaPath "package.json") -Force
 Set-Location $zhivaPath
 bun install --production --force

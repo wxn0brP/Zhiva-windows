@@ -26,7 +26,49 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
 
 if (-not (Get-Command bun -ErrorAction SilentlyContinue)) {
     Write-Output "[Z-WIN-1-05] Bun is not installed. Installing..."
-    irm https://bun.sh/install.ps1 | iex
+    try {
+        $prevEAP = $ErrorActionPreference
+        $ErrorActionPreference = "Stop"
+        irm https://bun.sh/install.ps1 | iex
+        $ErrorActionPreference = $prevEAP
+    } catch {
+        $ErrorActionPreference = $prevEAP
+        Write-Output "[Z-WIN-1-08] Official installer failed: $_"
+        Write-Output "[Z-WIN-1-09] Trying manual install..."
+
+        $bunRoot = if ($env:BUN_INSTALL) { $env:BUN_INSTALL } else { Join-Path $HOME ".bun" }
+        $bunBin = Join-Path $bunRoot "bin"
+        New-Item -ItemType Directory -Path $bunBin -Force | Out-Null
+
+        $zipPath = Join-Path $bunBin "bun.zip"
+        $url = "https://github.com/oven-sh/bun/releases/latest/download/bun-windows-x64.zip"
+
+        try {
+            Invoke-WebRequest -Uri $url -OutFile $zipPath -UseBasicParsing
+            Expand-Archive -Path $zipPath -DestinationPath $bunBin -Force
+            $extracted = Join-Path $bunBin "bun-windows-x64"
+            if (Test-Path (Join-Path $extracted "bun.exe")) {
+                Copy-Item (Join-Path $extracted "bun.exe") -Destination $bunBin -Force
+                Remove-Item $extracted -Recurse -Force -ErrorAction SilentlyContinue
+            }
+            Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
+        } catch {
+            throw "Failed to install Bun manually: $_"
+        }
+
+        if (-not (Get-Command bun -ErrorAction SilentlyContinue)) {
+            $userPath = [System.Environment]::GetEnvironmentVariable("PATH", "User")
+            if ($userPath -notlike "*$bunBin*") {
+                [System.Environment]::SetEnvironmentVariable("PATH", "$userPath;$bunBin", "User")
+                $env:PATH = "$env:PATH;$bunBin"
+            }
+        }
+
+        if (-not (Test-Path (Join-Path $bunBin "bun.exe"))) {
+            throw "Bun installation failed - bun.exe not found in $bunBin"
+        }
+        Write-Output "[Z-WIN-1-10] Bun installed manually to $bunBin"
+    }
 } else {
     Write-Output "[Z-WIN-1-06] Bun is already installed."
 }
