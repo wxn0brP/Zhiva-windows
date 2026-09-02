@@ -87,7 +87,7 @@ jobs:
           if ($IconInput -and $IconInput -ne '') {
               # rcedit can set icon on PE executables
               $rcedit = "$env:TEMP\rcedit-x64.exe"
-              Invoke-WebRequest -Uri "https://github.com/nicedoc/rcedit/releases/latest/download/rcedit-x64.exe" -OutFile $rcedit
+              Invoke-WebRequest -Uri "https://github.com/electron/rcedit/releases/latest/download/rcedit-x64.exe" -OutFile $rcedit
               & $rcedit $OutputExe --set-icon $IconInput
           }
 
