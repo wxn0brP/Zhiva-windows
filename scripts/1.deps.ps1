@@ -26,7 +26,10 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
 
 if (-not (Get-Command bun -ErrorAction SilentlyContinue)) {
     Write-Output "[Z-WIN-1-05] Bun is not installed. Installing..."
+    $prevEAP = $ErrorActionPreference
+    $ErrorActionPreference = "Stop"
     irm https://bun.sh/install.ps1 | iex
+    $ErrorActionPreference = $prevEAP
 } else {
     Write-Output "[Z-WIN-1-06] Bun is already installed."
 }

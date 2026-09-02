@@ -60,14 +60,38 @@ $installScript = {
         Write-Host "[Z-WIN-0-02] Zhiva isn't alive. Installing..."
         $baseUrl = "https://raw.githubusercontent.com/wxn0brP/Zhiva-windows/HEAD/scripts/"
 
-        irm "$baseUrl`1.deps.ps1" | iex
+        try {
+            $ErrorActionPreference = "Stop"
+            irm "$baseUrl`1.deps.ps1" | iex
+        } catch {
+            throw "[Z-WIN-0-05] Dependencies setup failed: $_"
+        }
+        if (-not (Get-Command bun -ErrorAction SilentlyContinue)) {
+            throw "[Z-WIN-0-06] Bun not found in PATH after deps setup."
+        }
         $env:PATH = Get-FreshPath
 
-        irm "$baseUrl`2.base.ps1" | iex
-        irm "$baseUrl`3.path.ps1" | iex
+        try {
+            $ErrorActionPreference = "Stop"
+            irm "$baseUrl`2.base.ps1" | iex
+        } catch {
+            throw "[Z-WIN-0-07] Base setup failed: $_"
+        }
+
+        try {
+            $ErrorActionPreference = "Stop"
+            irm "$baseUrl`3.path.ps1" | iex
+        } catch {
+            throw "[Z-WIN-0-08] PATH setup failed: $_"
+        }
         $env:PATH = Get-FreshPath
 
-        irm "$baseUrl`4.protocol.ps1" | iex
+        try {
+            $ErrorActionPreference = "Stop"
+            irm "$baseUrl`4.protocol.ps1" | iex
+        } catch {
+            throw "[Z-WIN-0-09] Protocol setup failed: $_"
+        }
     }
 
     $env:PATH = Get-FreshPath
@@ -85,16 +109,25 @@ $progressTimer = New-Object System.Windows.Forms.Timer
 $progressTimer.Interval = 2000
 
 $progressTimer.Add_Tick({
-    if ($script:job -and (Get-Job -Id $script:job.Id -ErrorAction SilentlyContinue).State -eq "Running") {
+    $job = Get-Job -Id $script:job.Id -ErrorAction SilentlyContinue
+    if ($job -and $job.State -eq "Running") {
         if ($script:progress -lt 90) {
             $script:progress++
             $progressBar.Value = $script:progress
         }
     } else {
         $progressBar.Value = 100
-        $label.Text = "Installation complete!"
-        $closeButton.Enabled = $true
         $progressTimer.Stop()
+
+        if ($job.State -eq "Failed") {
+            $err = Receive-Job $job -ErrorAction SilentlyContinue
+            $errMsg = if ($err -is [System.Management.Automation.ErrorRecord]) { $err.Exception.Message } else { "$err" }
+            $label.Text = "Failed: $errMsg"
+            $label.ForeColor = [System.Drawing.Color]::Red
+        } else {
+            $label.Text = "Installation complete!"
+        }
+        $closeButton.Enabled = $true
     }
 })
 
