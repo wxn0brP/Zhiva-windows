@@ -13,6 +13,7 @@ function Get-FreshPath {
 }
 
 try {
+    $ErrorActionPreference = "Continue"
     $env:PATH = Get-FreshPath
 
     $ZhivaDir = "$env:USERPROFILE\.zhiva"
@@ -43,7 +44,7 @@ try {
             Write-Log "[Z-WIN-1-05] Bun is not installed. Installing..."
             $bunInstallScript = "$env:TEMP\bun-install.ps1"
             Invoke-RestMethod https://bun.sh/install.ps1 -OutFile $bunInstallScript -Headers @{"Cache-Control"="no-cache"}
-            powershell -ExecutionPolicy Bypass -File $bunInstallScript
+            powershell -ExecutionPolicy Bypass -File $bunInstallScript 2>&1
             Remove-Item $bunInstallScript -Force -ErrorAction SilentlyContinue
         } else {
             Write-Log "[Z-WIN-1-06] Bun is already installed."
@@ -65,16 +66,16 @@ try {
         Write-Log "[Z-WIN-2-01] Bin folder created."
 
         if (-not (Test-Path $zhivaScriptsPath)) {
-            git clone https://github.com/wxn0brP/Zhiva-scripts.git $zhivaScriptsPath
+            git clone https://github.com/wxn0brP/Zhiva-scripts.git $zhivaScriptsPath 2>&1
         } else {
-            git -C $zhivaScriptsPath pull
+            git -C $zhivaScriptsPath pull 2>&1
         }
         Write-Log "[Z-WIN-2-02] Zhiva-scripts cloned."
 
         Copy-Item -Path (Join-Path $zhivaScriptsPath "package.json") -Destination (Join-Path $zhivaPath "package.json") -Force
         Set-Location $zhivaPath
-        bun install --production --force
-        bun run scripts/src/cli.ts self
+        bun install --production --force 2>&1
+        bun run scripts/src/cli.ts self 2>&1
         Write-Log "[Z-WIN-2-03] Zhiva-scripts is installed."
 
         $cmdContent = @"
@@ -145,7 +146,7 @@ public static extern IntPtr SendMessageTimeout(
         Write-Log "[Z-WIN-3-02] Adding Zhiva to PATH via registry and current session."
 
         $currentPathFromRegistry = Get-Env -Key "PATH"
-        $zhivaBinPath = Join-Path $HOME ".zhiva" "bin"
+        $zhivaBinPath = Join-Path (Join-Path $HOME ".zhiva") "bin"
         $zhivaBinPathNormalized = $zhivaBinPath.TrimEnd('\')
 
         $pathArray = @()
@@ -182,7 +183,7 @@ public static extern IntPtr SendMessageTimeout(
     Write-Log "[Z-WIN-0-04] Zhiva app installed."
 
 } catch {
-    Write-Log "[Z-WIN-ERROR] $_"
+    Write-Log "[Z-WIN-ERROR] $($_.Exception.Message)"
 }
 
 Read-Host "Press Enter to exit"
