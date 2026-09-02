@@ -1,5 +1,10 @@
 $LogFile = Join-Path $env:TEMP "zhiva-install.log"
-Start-Transcript -Path $LogFile -Append
+
+function Write-Log($Message) {
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    "$timestamp - $Message" | Out-File -FilePath $LogFile -Append -Encoding UTF8
+    Write-Host $Message
+}
 
 function Get-FreshPath {
     $systemPath = [System.Environment]::GetEnvironmentVariable("PATH", "Machine")
@@ -10,31 +15,31 @@ function Get-FreshPath {
 $env:PATH = Get-FreshPath
 
 $ZhivaDir = "$env:USERPROFILE\.zhiva"
-Write-Host "[Z-WIN-0-01] Zhiva directory: $ZhivaDir"
+Write-Log "[Z-WIN-0-01] Zhiva directory: $ZhivaDir"
 
 if (-not (Test-Path $ZhivaDir)) {
-    Write-Host "[Z-WIN-0-02] Zhiva isn't alive. Installing..."
+    Write-Log "[Z-WIN-0-02] Zhiva isn't alive. Installing..."
 
     # Step 1: Dependencies
-    Write-Host "[Z-WIN-1-01] Checking Git..."
+    Write-Log "[Z-WIN-1-01] Checking Git..."
     if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
-        Write-Host "[Z-WIN-1-01] Git is not installed. Resolving latest version..."
+        Write-Log "[Z-WIN-1-01] Git is not installed. Resolving latest version..."
         $release = Invoke-RestMethod -Uri "https://api.github.com/repos/git-for-windows/git/releases/latest"
         $asset = $release.assets | Where-Object { $_.name -match '64-bit\.exe$' } | Select-Object -First 1
         if (-not $asset) { throw "Git installer not found in latest release assets." }
         $installerPath = "$env:TEMP\$($asset.name)"
-        Write-Host "[Z-WIN-1-02] Downloading $($asset.name)..."
+        Write-Log "[Z-WIN-1-02] Downloading $($asset.name)..."
         Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $installerPath
-        Write-Host "[Z-WIN-1-03] Installing Git silently..."
+        Write-Log "[Z-WIN-1-03] Installing Git silently..."
         Start-Process -FilePath $installerPath -ArgumentList "/VERYSILENT /NORESTART" -Wait
         Remove-Item $installerPath -Force
     } else {
-        Write-Host "[Z-WIN-1-04] Git is already installed."
+        Write-Log "[Z-WIN-1-04] Git is already installed."
     }
 
-    Write-Host "[Z-WIN-1-05] Checking Bun..."
+    Write-Log "[Z-WIN-1-05] Checking Bun..."
     if (-not (Get-Command bun -ErrorAction SilentlyContinue)) {
-        Write-Host "[Z-WIN-1-05] Bun is not installed. Installing..."
+        Write-Log "[Z-WIN-1-05] Bun is not installed. Installing..."
         $prevEAP = $ErrorActionPreference
         $ErrorActionPreference = "Stop"
         $bunInstallScript = "$env:TEMP\bun-install.ps1"
@@ -43,9 +48,9 @@ if (-not (Test-Path $ZhivaDir)) {
         Remove-Item $bunInstallScript -Force -ErrorAction SilentlyContinue
         $ErrorActionPreference = $prevEAP
     } else {
-        Write-Host "[Z-WIN-1-06] Bun is already installed."
+        Write-Log "[Z-WIN-1-06] Bun is already installed."
     }
-    Write-Host "[Z-WIN-1-07] Dependencies are installed."
+    Write-Log "[Z-WIN-1-07] Dependencies are installed."
 
     if (-not (Get-Command bun -ErrorAction SilentlyContinue)) {
         throw "[Z-WIN-0-06] Bun not found in PATH after deps setup."
@@ -53,26 +58,26 @@ if (-not (Test-Path $ZhivaDir)) {
     $env:PATH = Get-FreshPath
 
     # Step 2: Base setup
-    Write-Host "[Z-WIN-2-01] Setting up base..."
+    Write-Log "[Z-WIN-2-01] Setting up base..."
     $zhivaPath = Join-Path $HOME ".zhiva"
     $zhivaBinPath = Join-Path $zhivaPath "bin"
     $zhivaScriptsPath = Join-Path $zhivaPath "scripts"
 
     New-Item -ItemType Directory -Path $zhivaBinPath -Force | Out-Null
-    Write-Host "[Z-WIN-2-01] Bin folder created."
+    Write-Log "[Z-WIN-2-01] Bin folder created."
 
     if (-not (Test-Path $zhivaScriptsPath)) {
         git clone https://github.com/wxn0brP/Zhiva-scripts.git $zhivaScriptsPath
     } else {
         git -C $zhivaScriptsPath pull
     }
-    Write-Host "[Z-WIN-2-02] Zhiva-scripts cloned."
+    Write-Log "[Z-WIN-2-02] Zhiva-scripts cloned."
 
     Copy-Item -Path (Join-Path $zhivaScriptsPath "package.json") -Destination (Join-Path $zhivaPath "package.json") -Force
     Set-Location $zhivaPath
     bun install --production --force
     bun run scripts/src/cli.ts self
-    Write-Host "[Z-WIN-2-03] Zhiva-scripts is installed."
+    Write-Log "[Z-WIN-2-03] Zhiva-scripts is installed."
 
     $cmdContent = @"
 @echo off
@@ -179,3 +184,5 @@ Start-Process cmd.exe -ArgumentList "/c", $ZhivaCmd, "install", "%%name%%" -Wait
 Write-Host "[Z-WIN-0-04] Zhiva app installed."
 
 Stop-Transcript
+
+Read-Host "Press Enter to exit"

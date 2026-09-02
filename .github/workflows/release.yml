@@ -87,7 +87,6 @@ jobs:
           $params = @{
               InputFile  = $InputFile
               OutputFile = $OutputFile
-              NoConsole  = $true
               Title      = "Zhiva App Installer"
           }
           if ($IconFile) {
