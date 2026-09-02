@@ -98,8 +98,8 @@ $installScript = {
 
     Write-Host "[Z-WIN-0-03] Zhiva is alive."
     $ZhivaCmd = "$ZhivaDir\bin\zhiva.cmd"
-    Start-Process $ZhivaCmd -ArgumentList "self" -Wait
-    Start-Process $ZhivaCmd -ArgumentList "install", "%%name%%" -Wait
+    Start-Process cmd.exe -ArgumentList "/c", $ZhivaCmd, "self" -Wait
+    Start-Process cmd.exe -ArgumentList "/c", $ZhivaCmd, "install", "%%name%%" -Wait
     Write-Host "[Z-WIN-0-04] Zhiva app installed."
 
     Stop-Transcript
