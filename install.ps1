@@ -183,6 +183,4 @@ Start-Process cmd.exe -ArgumentList "/c", $ZhivaCmd, "self" -Wait
 Start-Process cmd.exe -ArgumentList "/c", $ZhivaCmd, "install", "%%name%%" -Wait
 Write-Log "[Z-WIN-0-04] Zhiva app installed."
 
-Stop-Transcript
-
 Read-Host "Press Enter to exit"
