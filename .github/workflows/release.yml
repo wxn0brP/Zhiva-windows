@@ -1,4 +1,4 @@
-name: Build PS1 to EXE and Release
+name: Build and Release
 
 on:
   workflow_call:
@@ -47,13 +47,19 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Install PS2EXE
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Build
         shell: pwsh
         run: |
-          Install-Module -Name PS2EXE -Scope CurrentUser -Force
-          Import-Module PS2EXE
+          $AppName = "${{ inputs.name }}"
+          cargo build --release --target x86_64-pc-windows-msvc --env "ZHIVA_APP_NAME=$AppName"
 
-      - name: Compile
+      - name: Prepare release
+        id: prepare
         shell: pwsh
         run: |
           $AppName = "${{ inputs.name }}"
@@ -65,37 +71,26 @@ jobs:
               $FileName = $FileNameInput
           }
 
-          $InputFile = "$PWD\$FileName.ps1"
-          $OutputFile = "$PWD\$FileName.exe"
+          $BuiltExe = "target\x86_64-pc-windows-msvc\release\zhiva-installer.exe"
+          $OutputExe = "$FileName.exe"
 
-          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/wxn0brP/Zhiva-windows/refs/heads/master/install.ps1" -OutFile $InputFile
-          (Get-Content $InputFile) -replace '%%name%%', $AppName | Set-Content $InputFile
+          if (-not (Test-Path $BuiltExe)) {
+              Write-Error "Built executable not found: $BuiltExe"
+              exit 1
+          }
 
+          Copy-Item $BuiltExe $OutputExe
+
+          # Rename with custom icon if provided
           $IconInput = '${{ inputs.icon }}'
-          $IconFile = $null
-
           if ($IconInput -and $IconInput -ne '') {
-              $IconFile = "$PWD\$IconInput"
-              if (-not (Test-Path $IconFile)) {
-                  Write-Error "Icon file not found: $IconFile"
-                  exit 1
-              }
+              # rcedit can set icon on PE executables
+              $rcedit = "$env:TEMP\rcedit-x64.exe"
+              Invoke-WebRequest -Uri "https://github.com/nicedoc/rcedit/releases/latest/download/rcedit-x64.exe" -OutFile $rcedit
+              & $rcedit $OutputExe --set-icon $IconInput
           }
 
-          $params = @{
-              InputFile  = $InputFile
-              OutputFile = $OutputFile
-              NoConsole  = $true
-              Title      = "Zhiva App Installer"
-          }
-          if ($IconFile) {
-              $params.Icon = $IconFile
-          }
-
-          Invoke-PS2EXE @params
-
-          "$env:GITHUB_ENV" | Out-Null
-          "EXE_NAME=$FileName.exe" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          "EXE_NAME=$OutputExe" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Determine release tag
         id: tag
@@ -108,7 +103,7 @@ jobs:
           "release_tag=$ReleaseTag" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8
 
       - name: Upload binary to release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.tag.outputs.release_tag }}
           name: ${{ steps.tag.outputs.release_tag }}
