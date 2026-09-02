@@ -54,9 +54,10 @@ jobs:
 
       - name: Build
         shell: pwsh
+        env:
+          ZHIVA_APP_NAME: ${{ inputs.name }}
         run: |
-          $AppName = "${{ inputs.name }}"
-          cargo build --release --target x86_64-pc-windows-msvc --env "ZHIVA_APP_NAME=$AppName"
+          cargo build --release --target x86_64-pc-windows-msvc
 
       - name: Prepare release
         id: prepare
