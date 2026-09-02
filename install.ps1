@@ -99,7 +99,7 @@ bun run "%USERPROFILE%\.zhiva\scripts\src\cli.ts" %*
     $cmdContent | Set-Content -Path (Join-Path $zhivaBinPath "zhiva.cmd") -Force
 
     # Step 3: PATH setup
-    Write-Host "[Z-WIN-3-01] Adding Zhiva to PATH."
+    Write-Log "[Z-WIN-3-01] Adding Zhiva to PATH."
 
     if (-not ("Win32.NativeMethods" -as [Type])) {
         Add-Type -Namespace Win32 -Name NativeMethods -MemberDefinition @"
@@ -144,7 +144,7 @@ public static extern IntPtr SendMessageTimeout(
         $EnvRegisterKey.GetValue($Key, $null, [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
     }
 
-    Write-Host "[Z-WIN-3-02] Adding Zhiva to PATH via registry and current session."
+    Write-Log "[Z-WIN-3-02] Adding Zhiva to PATH via registry and current session."
 
     $currentPathFromRegistry = Get-Env -Key "PATH"
     $zhivaBinPath = Join-Path $HOME ".zhiva" "bin"
@@ -159,10 +159,10 @@ public static extern IntPtr SendMessageTimeout(
     Write-Env -Key "PATH" -Value $updatedPathValue
     $env:PATH = $updatedPathValue
 
-    Write-Host "[Z-WIN-3-03] Added to user PATH: $zhivaBinPath"
+    Write-Log "[Z-WIN-3-03] Added to user PATH: $zhivaBinPath"
 
     # Step 4: Protocol setup
-    Write-Host "[Z-WIN-4-01] Installing Zhiva protocol..."
+    Write-Log "[Z-WIN-4-01] Installing Zhiva protocol..."
 
     $protocol = "zhiva"
     $zhivaExe = Join-Path $HOME ".zhiva" "bin" "zhiva.cmd"
@@ -172,16 +172,16 @@ public static extern IntPtr SendMessageTimeout(
     New-Item "HKCU:\Software\Classes\$protocol\shell\open\command" -Force | Out-Null
     Set-ItemProperty "HKCU:\Software\Classes\$protocol\shell\open\command" -Name "(default)" -Value "`"$zhivaExe`" protocol `"%1`"" -Force
 
-    Write-Host "[Z-WIN-4-02] Zhiva protocol installed."
+    Write-Log "[Z-WIN-4-02] Zhiva protocol installed."
 }
 
 $env:PATH = Get-FreshPath
 
-Write-Host "[Z-WIN-0-03] Zhiva is alive."
+Write-Log "[Z-WIN-0-03] Zhiva is alive."
 $ZhivaCmd = "$ZhivaDir\bin\zhiva.cmd"
 Start-Process cmd.exe -ArgumentList "/c", $ZhivaCmd, "self" -Wait
 Start-Process cmd.exe -ArgumentList "/c", $ZhivaCmd, "install", "%%name%%" -Wait
-Write-Host "[Z-WIN-0-04] Zhiva app installed."
+Write-Log "[Z-WIN-0-04] Zhiva app installed."
 
 Stop-Transcript
 
