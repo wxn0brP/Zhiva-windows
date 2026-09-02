@@ -26,10 +26,12 @@ on:
         description: name
         required: true
         type: string
+        default: "Zhiva-store-app"
       icon:
         description: icon
         required: false
         type: string
+        default: "app.ico"
       release_tag:
         description: release_tag
         required: false
@@ -45,7 +47,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Install PS2EXE
         shell: pwsh
@@ -108,7 +110,7 @@ jobs:
           "release_tag=$ReleaseTag" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8
 
       - name: Upload binary to release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.tag.outputs.release_tag }}
           name: ${{ steps.tag.outputs.release_tag }}
