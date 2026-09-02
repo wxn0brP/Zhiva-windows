@@ -1,150 +1,181 @@
-Add-Type -AssemblyName System.Windows.Forms
-
-$form = New-Object System.Windows.Forms.Form
-$form.Text = "Zhiva Installer"
-$form.Size = New-Object System.Drawing.Size(400, 180)
-$form.StartPosition = "CenterScreen"
-$form.FormBorderStyle = 'FixedDialog'
-$form.MaximizeBox = $false
-$form.MinimizeBox = $false
-$form.TopMost = $true
-
-$label = New-Object System.Windows.Forms.Label
-$label.Text = "Click Start to begin installation."
-$label.AutoSize = $true
-$label.Location = New-Object System.Drawing.Point(20, 20)
-$form.Controls.Add($label)
-
-$progressBar = New-Object System.Windows.Forms.ProgressBar
-$progressBar.Style = "Continuous"
-$progressBar.Size = New-Object System.Drawing.Size(340, 20)
-$progressBar.Location = New-Object System.Drawing.Point(20, 50)
-$progressBar.Minimum = 0
-$progressBar.Maximum = 100
-$progressBar.Value = 0
-$form.Controls.Add($progressBar)
-
-$startButton = New-Object System.Windows.Forms.Button
-$startButton.Text = "Start"
-$startButton.Size = New-Object System.Drawing.Size(100, 30)
-$startButton.Location = New-Object System.Drawing.Point(20, 80)
-$form.Controls.Add($startButton)
-
-$closeButton = New-Object System.Windows.Forms.Button
-$closeButton.Text = "Close"
-$closeButton.Size = New-Object System.Drawing.Size(100, 30)
-$closeButton.Location = New-Object System.Drawing.Point(130, 80)
-$closeButton.Enabled = $false
-$closeButton.Add_Click({ $form.Close() })
-$form.Controls.Add($closeButton)
-
-$script:job = $null
-$script:progress = 0
 $LogFile = Join-Path $env:TEMP "zhiva-install.log"
+Start-Transcript -Path $LogFile -Append
 
-$installScript = {
-    function Get-FreshPath {
-        $systemPath = [System.Environment]::GetEnvironmentVariable("PATH", "Machine")
-        $userPath   = [System.Environment]::GetEnvironmentVariable("PATH", "User")
-        return "$systemPath;$userPath"
-    }
-
-    $env:PATH = Get-FreshPath
-
-    Start-Transcript -Path $using:LogFile -Append
-
-    $ZhivaDir = "$env:USERPROFILE\.zhiva"
-    Write-Host "[Z-WIN-0-01] Zhiva directory: $ZhivaDir"
-
-    if (-not (Test-Path $ZhivaDir)) {
-        Write-Host "[Z-WIN-0-02] Zhiva isn't alive. Installing..."
-        $baseUrl = "https://raw.githubusercontent.com/wxn0brP/Zhiva-windows/HEAD/scripts/"
-
-        try {
-            $ErrorActionPreference = "Stop"
-            irm "$baseUrl`1.deps.ps1" | iex
-        } catch {
-            throw "[Z-WIN-0-05] Dependencies setup failed: $_"
-        }
-        if (-not (Get-Command bun -ErrorAction SilentlyContinue)) {
-            throw "[Z-WIN-0-06] Bun not found in PATH after deps setup."
-        }
-        $env:PATH = Get-FreshPath
-
-        try {
-            $ErrorActionPreference = "Stop"
-            irm "$baseUrl`2.base.ps1" | iex
-        } catch {
-            throw "[Z-WIN-0-07] Base setup failed: $_"
-        }
-
-        try {
-            $ErrorActionPreference = "Stop"
-            irm "$baseUrl`3.path.ps1" | iex
-        } catch {
-            throw "[Z-WIN-0-08] PATH setup failed: $_"
-        }
-        $env:PATH = Get-FreshPath
-
-        try {
-            $ErrorActionPreference = "Stop"
-            irm "$baseUrl`4.protocol.ps1" | iex
-        } catch {
-            throw "[Z-WIN-0-09] Protocol setup failed: $_"
-        }
-    }
-
-    $env:PATH = Get-FreshPath
-
-    Write-Host "[Z-WIN-0-03] Zhiva is alive."
-    $ZhivaCmd = "$ZhivaDir\bin\zhiva.cmd"
-    Start-Process cmd.exe -ArgumentList "/c", $ZhivaCmd, "self" -Wait
-    Start-Process cmd.exe -ArgumentList "/c", $ZhivaCmd, "install", "%%name%%" -Wait
-    Write-Host "[Z-WIN-0-04] Zhiva app installed."
-
-    Stop-Transcript
+function Get-FreshPath {
+    $systemPath = [System.Environment]::GetEnvironmentVariable("PATH", "Machine")
+    $userPath   = [System.Environment]::GetEnvironmentVariable("PATH", "User")
+    return "$systemPath;$userPath"
 }
 
-$progressTimer = New-Object System.Windows.Forms.Timer
-$progressTimer.Interval = 2000
+$env:PATH = Get-FreshPath
 
-$progressTimer.Add_Tick({
-    $job = Get-Job -Id $script:job.Id -ErrorAction SilentlyContinue
-    if ($job -and $job.State -eq "Running") {
-        if ($script:progress -lt 90) {
-            $script:progress++
-            $progressBar.Value = $script:progress
-        }
+$ZhivaDir = "$env:USERPROFILE\.zhiva"
+Write-Host "[Z-WIN-0-01] Zhiva directory: $ZhivaDir"
+
+if (-not (Test-Path $ZhivaDir)) {
+    Write-Host "[Z-WIN-0-02] Zhiva isn't alive. Installing..."
+
+    # Step 1: Dependencies
+    Write-Host "[Z-WIN-1-01] Checking Git..."
+    if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+        Write-Host "[Z-WIN-1-01] Git is not installed. Resolving latest version..."
+        $release = Invoke-RestMethod -Uri "https://api.github.com/repos/git-for-windows/git/releases/latest"
+        $asset = $release.assets | Where-Object { $_.name -match '64-bit\.exe$' } | Select-Object -First 1
+        if (-not $asset) { throw "Git installer not found in latest release assets." }
+        $installerPath = "$env:TEMP\$($asset.name)"
+        Write-Host "[Z-WIN-1-02] Downloading $($asset.name)..."
+        Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $installerPath
+        Write-Host "[Z-WIN-1-03] Installing Git silently..."
+        Start-Process -FilePath $installerPath -ArgumentList "/VERYSILENT /NORESTART" -Wait
+        Remove-Item $installerPath -Force
     } else {
-        $progressBar.Value = 100
-        $progressTimer.Stop()
-
-        if ($job.State -eq "Failed") {
-            $err = Receive-Job $job -ErrorAction SilentlyContinue
-            $errMsg = if ($err -is [System.Management.Automation.ErrorRecord]) { $err.Exception.Message } else { "$err" }
-            $label.Text = "Failed: $errMsg"
-            $label.ForeColor = [System.Drawing.Color]::Red
-        } else {
-            $label.Text = "Installation complete!"
-        }
-        $closeButton.Enabled = $true
+        Write-Host "[Z-WIN-1-04] Git is already installed."
     }
-})
 
-$startButton.Add_Click({
-    $startButton.Enabled = $false
-    $label.Text = "Installing..."
-    
-    $script:job = Start-Job -ScriptBlock $installScript
-    $script:progress = 0
-    $progressBar.Value = 0
+    Write-Host "[Z-WIN-1-05] Checking Bun..."
+    if (-not (Get-Command bun -ErrorAction SilentlyContinue)) {
+        Write-Host "[Z-WIN-1-05] Bun is not installed. Installing..."
+        $prevEAP = $ErrorActionPreference
+        $ErrorActionPreference = "Stop"
+        $bunInstallScript = "$env:TEMP\bun-install.ps1"
+        Invoke-RestMethod https://bun.sh/install.ps1 -OutFile $bunInstallScript -Headers @{"Cache-Control"="no-cache"}
+        powershell -ExecutionPolicy Bypass -File $bunInstallScript
+        Remove-Item $bunInstallScript -Force -ErrorAction SilentlyContinue
+        $ErrorActionPreference = $prevEAP
+    } else {
+        Write-Host "[Z-WIN-1-06] Bun is already installed."
+    }
+    Write-Host "[Z-WIN-1-07] Dependencies are installed."
 
-    $progressTimer.Start()
-})
+    if (-not (Get-Command bun -ErrorAction SilentlyContinue)) {
+        throw "[Z-WIN-0-06] Bun not found in PATH after deps setup."
+    }
+    $env:PATH = Get-FreshPath
 
-$form.ShowDialog() | Out-Null
+    # Step 2: Base setup
+    Write-Host "[Z-WIN-2-01] Setting up base..."
+    $zhivaPath = Join-Path $HOME ".zhiva"
+    $zhivaBinPath = Join-Path $zhivaPath "bin"
+    $zhivaScriptsPath = Join-Path $zhivaPath "scripts"
 
-if ($script:job) {
-    Remove-Job $script:job -Force -ErrorAction SilentlyContinue
+    New-Item -ItemType Directory -Path $zhivaBinPath -Force | Out-Null
+    Write-Host "[Z-WIN-2-01] Bin folder created."
+
+    if (-not (Test-Path $zhivaScriptsPath)) {
+        git clone https://github.com/wxn0brP/Zhiva-scripts.git $zhivaScriptsPath
+    } else {
+        git -C $zhivaScriptsPath pull
+    }
+    Write-Host "[Z-WIN-2-02] Zhiva-scripts cloned."
+
+    Copy-Item -Path (Join-Path $zhivaScriptsPath "package.json") -Destination (Join-Path $zhivaPath "package.json") -Force
+    Set-Location $zhivaPath
+    bun install --production --force
+    bun run scripts/src/cli.ts self
+    Write-Host "[Z-WIN-2-03] Zhiva-scripts is installed."
+
+    $cmdContent = @"
+@echo off
+
+if defined _ZHIVA_BG_RUN (
+    bun run "%USERPROFILE%\.zhiva\scripts\src\cli.ts" %*
+    exit /b
+)
+
+if defined _ZHIVA_BG (
+	set _ZHIVA_BG_RUN=1
+	start "" /min cmd /c "%~f0" %*
+    exit /b
+)
+
+bun run "%USERPROFILE%\.zhiva\scripts\src\cli.ts" %*
+"@
+
+    $cmdContent | Set-Content -Path (Join-Path $zhivaBinPath "zhiva.cmd") -Force
+
+    # Step 3: PATH setup
+    Write-Host "[Z-WIN-3-01] Adding Zhiva to PATH."
+
+    if (-not ("Win32.NativeMethods" -as [Type])) {
+        Add-Type -Namespace Win32 -Name NativeMethods -MemberDefinition @"
+[DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+public static extern IntPtr SendMessageTimeout(
+    IntPtr hWnd, uint Msg, UIntPtr wParam, string lParam,
+    uint fuFlags, uint uTimeout, out UIntPtr lpdwResult);
+"@
+    }
+
+    function Publish-Env {
+        $HWND_BROADCAST = [IntPtr]0xffff
+        $WM_SETTINGCHANGE = 0x1a
+        $result = [UIntPtr]::Zero
+        [Win32.NativeMethods]::SendMessageTimeout($HWND_BROADCAST, $WM_SETTINGCHANGE,
+            [UIntPtr]::Zero, "Environment", 2, 5000, [ref]$result) | Out-Null
+    }
+
+    function Write-Env {
+        param([String]$Key, [String]$Value)
+        $RegisterKey = Get-Item -Path 'HKCU:'
+        $EnvRegisterKey = $RegisterKey.OpenSubKey('Environment', $true)
+        if ($null -eq $Value) {
+            $EnvRegisterKey.DeleteValue($Key)
+        } else {
+            $RegistryValueKind = if ($Value.Contains('%')) {
+                [Microsoft.Win32.RegistryValueKind]::ExpandString
+            } elseif ($EnvRegisterKey.GetValue($Key)) {
+                $EnvRegisterKey.GetValueKind($Key)
+            } else {
+                [Microsoft.Win32.RegistryValueKind]::String
+            }
+            $EnvRegisterKey.SetValue($Key, $Value, $RegistryValueKind)
+        }
+        Publish-Env
+    }
+
+    function Get-Env {
+        param([String]$Key)
+        $RegisterKey = Get-Item -Path 'HKCU:'
+        $EnvRegisterKey = $RegisterKey.OpenSubKey('Environment')
+        $EnvRegisterKey.GetValue($Key, $null, [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
+    }
+
+    Write-Host "[Z-WIN-3-02] Adding Zhiva to PATH via registry and current session."
+
+    $currentPathFromRegistry = Get-Env -Key "PATH"
+    $zhivaBinPath = Join-Path $HOME ".zhiva" "bin"
+    $zhivaBinPathNormalized = $zhivaBinPath.TrimEnd('\')
+
+    $pathArray = @()
+    if ($currentPathFromRegistry) {
+        $pathArray = $currentPathFromRegistry -split ';' | Where-Object { $_ -and $_.TrimEnd('\') -ne $zhivaBinPathNormalized }
+    }
+    $updatedPathValue = ($pathArray + @($zhivaBinPathNormalized)) -join ';'
+
+    Write-Env -Key "PATH" -Value $updatedPathValue
+    $env:PATH = $updatedPathValue
+
+    Write-Host "[Z-WIN-3-03] Added to user PATH: $zhivaBinPath"
+
+    # Step 4: Protocol setup
+    Write-Host "[Z-WIN-4-01] Installing Zhiva protocol..."
+
+    $protocol = "zhiva"
+    $zhivaExe = Join-Path $HOME ".zhiva" "bin" "zhiva.cmd"
+
+    New-Item "HKCU:\Software\Classes\$protocol" -Force | Out-Null
+    New-ItemProperty "HKCU:\Software\Classes\$protocol" -Name "URL Protocol" -Value "" -Force | Out-Null
+    New-Item "HKCU:\Software\Classes\$protocol\shell\open\command" -Force | Out-Null
+    Set-ItemProperty "HKCU:\Software\Classes\$protocol\shell\open\command" -Name "(default)" -Value "`"$zhivaExe`" protocol `"%1`"" -Force
+
+    Write-Host "[Z-WIN-4-02] Zhiva protocol installed."
 }
-$progressTimer.Dispose()
+
+$env:PATH = Get-FreshPath
+
+Write-Host "[Z-WIN-0-03] Zhiva is alive."
+$ZhivaCmd = "$ZhivaDir\bin\zhiva.cmd"
+Start-Process cmd.exe -ArgumentList "/c", $ZhivaCmd, "self" -Wait
+Start-Process cmd.exe -ArgumentList "/c", $ZhivaCmd, "install", "%%name%%" -Wait
+Write-Host "[Z-WIN-0-04] Zhiva app installed."
+
+Stop-Transcript
