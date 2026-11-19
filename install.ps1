@@ -19,6 +19,11 @@ try {
     $ZhivaDir = "$env:USERPROFILE\.zhiva"
     Write-Log "[Z-WIN-0-01] Zhiva directory: $ZhivaDir"
 
+    $AppName = "%%name%%"
+    if ([string]::IsNullOrWhiteSpace($AppName) -or $AppName.Contains("%%")) {
+        $AppName = "Zhiva-store-app"
+    }
+
     if (-not (Test-Path $ZhivaDir)) {
         Write-Log "[Z-WIN-0-02] Zhiva isn't alive. Installing..."
 
@@ -176,10 +181,35 @@ public static extern IntPtr SendMessageTimeout(
 
     $env:PATH = Get-FreshPath
 
+    $bunBin = Join-Path $env:USERPROFILE ".bun\bin"
+    $pathParts = $env:PATH -split ';' | Where-Object { $_ }
+    if ((Test-Path $bunBin) -and -not ($pathParts | Where-Object { $_.TrimEnd('\') -eq $bunBin.TrimEnd('\') })) {
+        $env:PATH = "$env:PATH;$bunBin"
+        Write-Log "[Z-WIN-3-04] Added Bun to PATH for this session."
+    }
+
+    if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+        throw "Git is not installed or not in PATH. Install Git for Windows and run the installer again."
+    }
+    if (-not (Get-Command bun -ErrorAction SilentlyContinue)) {
+        throw "Bun is not installed or not in PATH. Install Bun from https://bun.sh and run the installer again."
+    }
+
     Write-Log "[Z-WIN-0-03] Zhiva is alive."
     $ZhivaCmd = "$ZhivaDir\bin\zhiva.cmd"
-    Start-Process cmd.exe -ArgumentList "/c", $ZhivaCmd, "self" -Wait
-    Start-Process cmd.exe -ArgumentList "/c", $ZhivaCmd, "install", "%%name%%" -Wait
+    if (-not (Test-Path $ZhivaCmd)) {
+        throw "The Zhiva launcher is missing: $ZhivaCmd. Re-run the installer."
+    }
+
+    $selfProc = Start-Process cmd.exe -ArgumentList "/c", "`"$ZhivaCmd`" self" -Wait -PassThru
+    if ($selfProc.ExitCode -ne 0) {
+        throw "Updating Zhiva failed with exit code $($selfProc.ExitCode). Log: $LogFile"
+    }
+
+    $installProc = Start-Process cmd.exe -ArgumentList "/c", "`"$ZhivaCmd`" install `"$AppName`"" -Wait -PassThru
+    if ($installProc.ExitCode -ne 0) {
+        throw "Installing $AppName failed with exit code $($installProc.ExitCode). Log: $LogFile"
+    }
     Write-Log "[Z-WIN-0-04] Zhiva app installed."
     
     $successBanner = @"
@@ -205,6 +235,8 @@ public static extern IntPtr SendMessageTimeout(
 
 } catch {
     Write-Log "[Z-WIN-ERROR] $($_.Exception.Message)"
+    Write-Host ""
+    Write-Host "Installation failed. Full log: $LogFile" -ForegroundColor Red
 }
 
 Read-Host "Press Enter to exit"
