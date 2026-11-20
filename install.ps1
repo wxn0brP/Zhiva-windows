@@ -56,10 +56,15 @@ try {
         }
         Write-Log "[Z-WIN-1-07] Dependencies are installed."
 
+        $env:PATH = Get-FreshPath
+        $bunBin = Join-Path $env:USERPROFILE ".bun\bin"
+        if ((Test-Path (Join-Path $bunBin "bun.exe")) -and -not (($env:PATH -split ';') | Where-Object { $_.TrimEnd('\') -eq $bunBin.TrimEnd('\') })) {
+            $env:PATH = "$env:PATH;$bunBin"
+        }
+
         if (-not (Get-Command bun -ErrorAction SilentlyContinue)) {
             throw "[Z-WIN-0-06] Bun not found in PATH after deps setup."
         }
-        $env:PATH = Get-FreshPath
 
         # Step 2: Base setup
         Write-Log "[Z-WIN-2-01] Setting up base..."
