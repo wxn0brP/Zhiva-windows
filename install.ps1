@@ -201,12 +201,13 @@ public static extern IntPtr SendMessageTimeout(
 
     $appInstallOutput = Join-Path $env:TEMP "zhiva-app-install.log"
     Remove-Item $appInstallOutput -Force -ErrorAction SilentlyContinue
-    $installProc = Start-Process cmd.exe -ArgumentList "/c", "`"$ZhivaCmd`" install `"$AppName`" > `"$appInstallOutput`" 2>&1" -Wait -PassThru
-    if ($installProc.ExitCode -ne 0) {
+    & $ZhivaCmd install $AppName *> $appInstallOutput
+    $installExitCode = $LASTEXITCODE
+    if ($installExitCode -ne 0) {
         if (Test-Path $appInstallOutput) {
             Get-Content $appInstallOutput | ForEach-Object { Write-Log "[Z-WIN-APP-OUTPUT] $_" }
         }
-        throw "Installing $AppName failed with exit code $($installProc.ExitCode). Log: $LogFile"
+        throw "Installing $AppName failed with exit code $installExitCode. Log: $LogFile"
     }
     Write-Log "[Z-WIN-0-04] Zhiva app installed."
     
