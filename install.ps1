@@ -1,9 +1,116 @@
 $LogFile = Join-Path $env:TEMP "zhiva-install.log"
+$script:UiEnabled = $false
+$script:UiMessage = "Starting installer"
+$script:UiSteps = @(
+    @{ Name = "Git"; State = "pending" },
+    @{ Name = "Bun"; State = "pending" },
+    @{ Name = "Setup"; State = "pending" },
+    @{ Name = "App"; State = "pending" }
+)
+$script:UiLogs = New-Object System.Collections.ArrayList
+
+function Render-InstallUi {
+    if (-not $script:UiEnabled) { return }
+
+    try {
+        $width = [Console]::WindowWidth
+        $height = [Console]::WindowHeight
+        $logCount = [Math]::Min(8, [Math]::Max(3, $height - 10))
+        $visibleLogs = @($script:UiLogs | Select-Object -Last $logCount)
+        $activeIndex = -1
+        for ($i = 0; $i -lt $script:UiSteps.Count; $i++) {
+            if ($script:UiSteps[$i].State -eq "active") { $activeIndex = $i; break }
+        }
+
+        if ($script:UiSteps[3].State -eq "done") {
+            $percent = 100
+        } elseif ($activeIndex -ge 0) {
+            $percent = @(10, 32, 62, 86)[$activeIndex]
+        } else {
+            $percent = 0
+        }
+        $barWidth = 20
+        $filled = [Math]::Floor($percent * $barWidth / 100)
+        $bar = ("#" * $filled) + ("-" * ($barWidth - $filled))
+
+        Clear-Host
+        Write-Host " Zhiva Installer" -ForegroundColor Cyan
+        Write-Host " Application: $AppName"
+        Write-Host ""
+        foreach ($step in $script:UiSteps) {
+            $stateLabel = switch ($step.State) {
+                "done" { "DONE" }
+                "active" { "NOW " }
+                "failed" { "FAIL" }
+                default { "WAIT" }
+            }
+            $background = switch ($step.State) {
+                "done" { "DarkGreen" }
+                "active" { "DarkCyan" }
+                "failed" { "DarkRed" }
+                default { "DarkGray" }
+            }
+            Write-Host " $stateLabel $($step.Name) " -NoNewline -ForegroundColor White -BackgroundColor $background
+            Write-Host " " -NoNewline
+        }
+        Write-Host ""
+        Write-Host ""
+        Write-Host " Progress: [$bar] about $percent%" -ForegroundColor Cyan
+        Write-Host " $script:UiMessage"
+
+        $headerLines = 7
+        $padding = [Math]::Max(0, $height - $headerLines - $logCount - 2)
+        for ($i = 0; $i -lt $padding; $i++) { Write-Host "" }
+        Write-Host " Recent activity" -ForegroundColor DarkGray
+        foreach ($line in $visibleLogs) {
+            $displayLine = [string]$line
+            $maxLength = [Math]::Max(1, $width - 2)
+            if ($displayLine.Length -gt $maxLength) {
+                $displayLine = $displayLine.Substring(0, $maxLength - 3) + "..."
+            }
+            Write-Host " $displayLine"
+        }
+        for ($i = $visibleLogs.Count; $i -lt $logCount; $i++) { Write-Host "" }
+    } catch {
+        $script:UiEnabled = $false
+    }
+}
+
+function Initialize-InstallUi {
+    try {
+        if ([Console]::IsOutputRedirected -or [Console]::WindowWidth -lt 54 -or [Console]::WindowHeight -lt 14) { return }
+        $script:UiEnabled = $true
+        Render-InstallUi
+    } catch {
+        $script:UiEnabled = $false
+    }
+}
+
+function Set-InstallStep($Name, $Message) {
+    $stepIndex = -1
+    for ($i = 0; $i -lt $script:UiSteps.Count; $i++) {
+        if ($script:UiSteps[$i].Name -eq $Name) { $stepIndex = $i; break }
+    }
+    if ($Name -eq "Complete") {
+        foreach ($step in $script:UiSteps) { $step.State = "done" }
+    } elseif ($stepIndex -ge 0) {
+        for ($i = 0; $i -lt $stepIndex; $i++) { $script:UiSteps[$i].State = "done" }
+        $script:UiSteps[$stepIndex].State = "active"
+    }
+    if ($Message) { $script:UiMessage = $Message }
+    Render-InstallUi
+}
 
 function Write-Log($Message) {
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     "$timestamp - $Message" | Out-File -FilePath $LogFile -Append -Encoding UTF8
-    Write-Host $Message
+    if ($script:UiEnabled) {
+        [void]$script:UiLogs.Add($Message)
+        if ($script:UiLogs.Count -gt 40) { $script:UiLogs.RemoveAt(0) }
+        Render-InstallUi
+    } else {
+        Write-Host $Message
+    }
 }
 
 function Get-FreshPath {
@@ -23,6 +130,8 @@ try {
     if ([string]::IsNullOrWhiteSpace($AppName) -or $AppName.Contains("%%")) {
         $AppName = "Zhiva-store-app"
     }
+    Initialize-InstallUi
+    Set-InstallStep "Git" "Checking Git"
 
     if (-not (Test-Path $ZhivaDir)) {
         Write-Log "[Z-WIN-0-02] Zhiva isn't alive. Installing..."
@@ -44,17 +153,19 @@ try {
             Write-Log "[Z-WIN-1-04] Git is already installed."
         }
 
+        Set-InstallStep "Bun" "Checking Bun"
         Write-Log "[Z-WIN-1-05] Checking Bun..."
         if (-not (Get-Command bun -ErrorAction SilentlyContinue)) {
             Write-Log "[Z-WIN-1-05] Bun is not installed. Installing..."
             $bunInstallScript = "$env:TEMP\bun-install.ps1"
             Invoke-RestMethod https://bun.sh/install.ps1 -OutFile $bunInstallScript -Headers @{"Cache-Control"="no-cache"}
-            cmd /c "powershell -ExecutionPolicy Bypass -File `"$bunInstallScript`" 2>&1"
+            cmd /c "powershell -ExecutionPolicy Bypass -File `"$bunInstallScript`" 2>&1" | ForEach-Object { Write-Log $_ }
             Remove-Item $bunInstallScript -Force -ErrorAction SilentlyContinue
         } else {
             Write-Log "[Z-WIN-1-06] Bun is already installed."
         }
         Write-Log "[Z-WIN-1-07] Dependencies are installed."
+        Set-InstallStep "Setup" "Setting up Zhiva"
 
         $env:PATH = Get-FreshPath
         $bunBin = Join-Path $env:USERPROFILE ".bun\bin"
@@ -76,16 +187,16 @@ try {
         Write-Log "[Z-WIN-2-01] Bin folder created."
 
         if (-not (Test-Path $zhivaScriptsPath)) {
-            cmd /c "git clone https://github.com/wxn0brP/Zhiva-scripts.git `"$zhivaScriptsPath`" 2>&1"
+            cmd /c "git clone https://github.com/wxn0brP/Zhiva-scripts.git `"$zhivaScriptsPath`" 2>&1" | ForEach-Object { Write-Log $_ }
         } else {
-            cmd /c "git -C `"$zhivaScriptsPath`" pull 2>&1"
+            cmd /c "git -C `"$zhivaScriptsPath`" pull 2>&1" | ForEach-Object { Write-Log $_ }
         }
         Write-Log "[Z-WIN-2-02] Zhiva-scripts cloned."
 
         Copy-Item -Path (Join-Path $zhivaScriptsPath "package.json") -Destination (Join-Path $zhivaPath "package.json") -Force
         Set-Location $zhivaPath
-        cmd /c "bun install --production --force 2>&1"
-        cmd /c "bun run scripts/src/cli.ts self 2>&1"
+        cmd /c "bun install --production --force 2>&1" | ForEach-Object { Write-Log $_ }
+        cmd /c "bun run scripts/src/cli.ts self 2>&1" | ForEach-Object { Write-Log $_ }
         Write-Log "[Z-WIN-2-03] Zhiva-scripts is installed."
 
         $cmdContent = @"
@@ -172,6 +283,7 @@ public static extern IntPtr SendMessageTimeout(
         Write-Log "[Z-WIN-4-02] Zhiva protocol installed."
     }
 
+    Set-InstallStep "App" "Installing $AppName"
     $env:PATH = Get-FreshPath
 
     $bunBin = Join-Path $env:USERPROFILE ".bun\bin"
@@ -201,7 +313,7 @@ public static extern IntPtr SendMessageTimeout(
 
     $appInstallOutput = Join-Path $env:TEMP "zhiva-app-install.log"
     Remove-Item $appInstallOutput -Force -ErrorAction SilentlyContinue
-    & $ZhivaCmd install $AppName *> $appInstallOutput
+    & $ZhivaCmd install $AppName 2>&1 | Tee-Object -FilePath $appInstallOutput | ForEach-Object { Write-Log $_ }
     $installExitCode = $LASTEXITCODE
     if ($installExitCode -ne 0) {
         if (Test-Path $appInstallOutput) {
@@ -211,31 +323,15 @@ public static extern IntPtr SendMessageTimeout(
     }
     Write-Log "[Z-WIN-0-04] Zhiva app installed."
     
-    $successBanner = @"
+    Set-InstallStep "Complete" "Installation complete"
 
-============================================================
-============================================================
-============================================================
-
-   ███████╗██╗   ██╗ ██████╗ ██████╗███████╗███████╗███████╗
-   ██╔════╝██║   ██║██╔════╝██╔════╝██╔════╝██╔════╝██╔════╝
-   ███████╗██║   ██║██║     ██║     █████╗  ███████╗███████╗
-   ╚════██║██║   ██║██║     ██║     ██╔══╝  ╚════██║╚════██║
-   ███████║╚██████╔╝╚██████╗╚██████╗███████╗███████║███████║
-   ╚══════╝ ╚═════╝  ╚═════╝ ╚═════╝╚══════╝╚══════╝╚══════╝
-                                                              
-
-============================================================
-============================================================
-============================================================
-
-"@
-    Write-Log $successBanner
 
 } catch {
+    $activeStep = $script:UiSteps | Where-Object { $_.State -eq "active" } | Select-Object -First 1
+    if ($activeStep) { $activeStep.State = "failed" }
+    $script:UiMessage = "Installation failed"
     Write-Log "[Z-WIN-ERROR] $($_.Exception.Message)"
-    Write-Host ""
-    Write-Host "Installation failed. Full log: $LogFile" -ForegroundColor Red
+    Write-Log "Full log: $LogFile"
 }
 
 Read-Host "Press Enter to exit"
