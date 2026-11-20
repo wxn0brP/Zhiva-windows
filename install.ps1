@@ -1,4 +1,8 @@
 $LogFile = Join-Path $env:TEMP "zhiva-install.log"
+$utf8Encoding = New-Object System.Text.UTF8Encoding -ArgumentList $false
+[Console]::InputEncoding = $utf8Encoding
+[Console]::OutputEncoding = $utf8Encoding
+$OutputEncoding = $utf8Encoding
 $script:UiEnabled = $false
 $script:UiMessage = "Starting installer"
 $script:UiSteps = @(
@@ -15,14 +19,16 @@ function Render-InstallUi {
     try {
         $width = [Console]::WindowWidth
         $height = [Console]::WindowHeight
-        $logCount = [Math]::Min(8, [Math]::Max(3, $height - 10))
-        $visibleLogs = @($script:UiLogs | Select-Object -Last $logCount)
+        if ($width -lt 1 -or $height -lt 1) { return }
         $activeIndex = -1
         for ($i = 0; $i -lt $script:UiSteps.Count; $i++) {
             if ($script:UiSteps[$i].State -eq "active") { $activeIndex = $i; break }
         }
+        $isSuccess = $script:UiSteps[3].State -eq "done"
+        $isFailure = @($script:UiSteps | Where-Object { $_.State -eq "failed" }).Count -gt 0
+        $showTiles = $width -ge 54 -and $height -ge 15
 
-        if ($script:UiSteps[3].State -eq "done") {
+        if ($isSuccess) {
             $percent = 100
         } elseif ($activeIndex -ge 0) {
             $percent = @(10, 32, 62, 86)[$activeIndex]
@@ -32,45 +38,79 @@ function Render-InstallUi {
         $barWidth = 20
         $filled = [Math]::Floor($percent * $barWidth / 100)
         $bar = ("#" * $filled) + ("-" * ($barWidth - $filled))
+        $headerLines = 7
+        if ($isSuccess -or $isFailure) { $headerLines += 4 }
+        $logCount = [Math]::Min(8, [Math]::Max(0, $height - $headerLines - 1))
+        $visibleLogs = if ($logCount -gt 0) { @($script:UiLogs | Select-Object -Last $logCount) } else { @() }
 
         Clear-Host
-        Write-Host " Zhiva Installer" -ForegroundColor Cyan
-        Write-Host " Application: $AppName"
+        $title = " Zhiva Installer"
+        if ($title.Length -gt $width - 1) { $title = $title.Substring(0, [Math]::Max(0, $width - 1)) }
+        Write-Host $title -ForegroundColor Cyan
+        $appLine = " Application: $AppName"
+        if ($appLine.Length -gt $width - 1) { $appLine = $appLine.Substring(0, [Math]::Max(0, $width - 1)) }
+        Write-Host $appLine
         Write-Host ""
-        foreach ($step in $script:UiSteps) {
-            $stateLabel = switch ($step.State) {
-                "done" { "DONE" }
-                "active" { "NOW " }
-                "failed" { "FAIL" }
-                default { "WAIT" }
+        if ($showTiles) {
+            foreach ($step in $script:UiSteps) {
+                $stateLabel = switch ($step.State) {
+                    "done" { "DONE" }
+                    "active" { "NOW " }
+                    "failed" { "FAIL" }
+                    default { "WAIT" }
+                }
+                $background = switch ($step.State) {
+                    "done" { "DarkGreen" }
+                    "active" { "DarkCyan" }
+                    "failed" { "DarkRed" }
+                    default { "DarkGray" }
+                }
+                Write-Host " $stateLabel $($step.Name) " -NoNewline -ForegroundColor White -BackgroundColor $background
+                Write-Host " " -NoNewline
             }
-            $background = switch ($step.State) {
-                "done" { "DarkGreen" }
-                "active" { "DarkCyan" }
-                "failed" { "DarkRed" }
-                default { "DarkGray" }
-            }
-            Write-Host " $stateLabel $($step.Name) " -NoNewline -ForegroundColor White -BackgroundColor $background
-            Write-Host " " -NoNewline
+        } else {
+            $currentStep = if ($activeIndex -ge 0) { $script:UiSteps[$activeIndex].Name } elseif ($isSuccess) { "Complete" } else { "Status" }
+            $stageLine = " Stage: $currentStep"
+            if ($stageLine.Length -gt $width - 1) { $stageLine = $stageLine.Substring(0, [Math]::Max(0, $width - 1)) }
+            Write-Host $stageLine -ForegroundColor Cyan
         }
         Write-Host ""
-        Write-Host ""
-        Write-Host " Progress: [$bar] about $percent%" -ForegroundColor Cyan
-        Write-Host " $script:UiMessage"
+        $progressLine = " Progress: [$bar] about $percent%"
+        if ($progressLine.Length -gt $width - 1) { $progressLine = $progressLine.Substring(0, [Math]::Max(0, $width - 1)) }
+        Write-Host $progressLine -ForegroundColor Cyan
+        $messageLine = " $script:UiMessage"
+        if ($messageLine.Length -gt $width - 1) { $messageLine = $messageLine.Substring(0, [Math]::Max(0, $width - 1)) }
+        Write-Host $messageLine
 
-        $headerLines = 7
-        $padding = [Math]::Max(0, $height - $headerLines - $logCount - 2)
-        for ($i = 0; $i -lt $padding; $i++) { Write-Host "" }
-        Write-Host " Recent activity" -ForegroundColor DarkGray
-        foreach ($line in $visibleLogs) {
-            $displayLine = [string]$line
-            $maxLength = [Math]::Max(1, $width - 2)
-            if ($displayLine.Length -gt $maxLength) {
-                $displayLine = $displayLine.Substring(0, $maxLength - 3) + "..."
-            }
-            Write-Host " $displayLine"
+        if ($isSuccess) {
+            Write-Host ""
+            Write-Host " INSTALLATION SUCCESSFUL" -ForegroundColor White -BackgroundColor Green
+            Write-Host " $AppName is ready to use." -ForegroundColor Green
+            Write-Host " Press Enter to close this window."
+        } elseif ($isFailure) {
+            Write-Host ""
+            Write-Host " INSTALLATION FAILED" -ForegroundColor White -BackgroundColor DarkRed
+            Write-Host " See the recent activity below for details." -ForegroundColor Red
+            Write-Host " Press Enter to close this window."
         }
-        for ($i = $visibleLogs.Count; $i -lt $logCount; $i++) { Write-Host "" }
+
+        if ($logCount -gt 0) {
+            $padding = [Math]::Max(0, $height - $headerLines - $logCount - 1)
+            for ($i = 0; $i -lt $padding; $i++) { Write-Host "" }
+            Write-Host " Recent activity" -ForegroundColor DarkGray
+            foreach ($line in $visibleLogs) {
+                $displayLine = [string]$line
+                $maxLength = [Math]::Max(1, $width - 1)
+                if ($displayLine.Length -gt $maxLength) {
+                    if ($maxLength -le 3) {
+                        $displayLine = $displayLine.Substring(0, $maxLength)
+                    } else {
+                        $displayLine = $displayLine.Substring(0, $maxLength - 3) + "..."
+                    }
+                }
+                Write-Host " $displayLine"
+            }
+        }
     } catch {
         $script:UiEnabled = $false
     }
