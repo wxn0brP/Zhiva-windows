@@ -1,0 +1,15 @@
+name: Build and release store installer
+
+on:
+  push:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    uses: ./.github/workflows/release.yml
+    with:
+      name: Zhiva-store-app
+      icon: app.ico
+      release_tag: latest
